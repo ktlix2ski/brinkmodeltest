@@ -460,12 +460,6 @@ counter = 0
 # Maximum time step!!  Increase with caution.
 dt_max = 1.0
 
-#attempt to plot variables over time in an active plot
-time_values =[]  #i added this
-thickness_values = []
-plt.ion()
-fig_term, ax_term = plt.subplots()
-
 
 
 # Initialization stuff
@@ -560,24 +554,12 @@ while t<t_end:
 
         ph_hs.set_ydata(h_s0.compute_vertex_values())
         ax[3].set_ylim(0,h_s0.compute_vertex_values().max()+10)
-        
-        #i added this as im tring to plot thickness change over time
-        # x_coords = coord[:,0]
-        # term_region = x_coords > 0.9 * np.max(x_coords)
-        # thk_term = thk[term_region]
-        # mean_thk_term = np.nanmean(thk_term)
-        # time_values.append(t)
-        # thickness_values.append(thickness_values, mean_thk_term
-        # ax_term.plot(time_values, thickness_values, label= 'thickness over time')
-        # print("thickness={thickness_values}")
-
 
 
         if counter%5==0:
             #pause(0.00001)
             fig.canvas.start_event_loop(0.001)
             fig.canvas.draw_idle()
-            fig_term.canvas.start_event_loop(0.001)
 
         t+=dt_float
         counter+=1
