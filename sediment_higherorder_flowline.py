@@ -9,7 +9,7 @@
 ####################################################################################
 ####################################################################################
 
-import matplotlib
+#import matplotlib
 import dolfin as df
 import ufl
 import matplotlib.pyplot as plt
@@ -51,7 +51,7 @@ amax = df.Constant(5.0)        # Maximum smb surface mass balance accumulation r
 
 c = 2.0                     # Coefficient of exponential decay (f in equation 11??)
 
-amp = 100.0                   # Amplitude of sinusoidal topography (for bedrock topography)
+amp = 0.0                   # Amplitude of sinusoidal topography (for bedrock topography)
 
 rho = rho_i = 917.                  # Ice density
 rho_w = 1029.0              # Seawater density
@@ -76,7 +76,7 @@ h_0 = df.Constant(0.1)         # Subglacial cavity depth (eqn 4 - not sure exact
 k = df.Constant(0.7) 
 
 #dt_float = 0.1           # OG Time step 
-dt_float = 10.0           # New Time step 
+dt_float = 5.0           # New Time step 
 dt = df.Constant(dt_float)
 
 #########################################################
@@ -220,7 +220,8 @@ ghat = 1/(1 + df.exp(-(H*rho_i/rho_w + 3 - D)))  # Approximate flotation indicat
 
 beta2 = df.interpolate(Beta2(),Q_cg)   # Traction
 
-climate_factor = df.Constant(1.0)      # Climate
+climate_factor = df.Constant(1.0)      # Climate: <1 → more continental climate, >1 → more maritime climate 
+
 adot = climate_factor*(amin + (amax-amin)/(1-df.exp(-c))*(1.-df.exp(-c*((S/2000)))))#*grounded + (-0.5*H)*(1-grounded)
 
 ########################################################
@@ -460,6 +461,13 @@ counter = 0
 # Maximum time step!!  Increase with caution.
 dt_max = 1.0
 
+#attempt to plot variables over time in an active plot
+time_values = np.full(301,np.nan) #i added this
+thk = H0_.compute_vertex_values()
+plt.ion()
+fig_term, ax_term = plt.subplots()
+line_term, = ax_term.plot([],[])
+
 
 
 # Initialization stuff
@@ -523,9 +531,12 @@ while t<t_end:
 
         # Do some plotting
         time_text.set_text(f'Time: {t:.2f} years')  #i added this and i think the unit is years?
+                
+        nan_idx = np.where(np.isnan(time_values))[0]  #this adds times to the time_values as it runs through the loop and replaces nans
+        if len(nan_idx) > 0:  
+           time_values[nan_idx[0]] = t 
         
-        coord = H0_.function_space().mesh().coordinates() #i addded this
-        
+           
         thk = H0_.compute_vertex_values()
         bed = B0.compute_vertex_values()
         surface = df.project(S).compute_vertex_values()
@@ -541,6 +552,7 @@ while t<t_end:
         ph_surface.set_ydata(surface)
         ph_bottom.set_ydata(bottom)
         ph_sed.set_ydata(sed_surface) 
+        
     
         ph_grounded.set_ydata(grounded.compute_vertex_values())
 
@@ -554,12 +566,18 @@ while t<t_end:
 
         ph_hs.set_ydata(h_s0.compute_vertex_values())
         ax[3].set_ylim(0,h_s0.compute_vertex_values().max()+10)
-
-
-        if counter%5==0:
+ 
+        #updates time plot, i added this
+        line_term.set_data(time_values, g_)
+        ax_term.relim()  
+        ax_term.autoscale_view()  
+        fig_term.canvas.draw_idle()
+ 
+        if counter%20==0:
             #pause(0.00001)
             fig.canvas.start_event_loop(0.001)
             fig.canvas.draw_idle()
+            fig_term.canvas.start_event_loop(0.001)
 
         t+=dt_float
         counter+=1
