@@ -463,7 +463,7 @@ dt_max = 1.0
 
 #attempt to plot variables over time in an active plot
 time_values = np.full(301,np.nan) #i added this
-thk = H0_.compute_vertex_values()
+term_thk_val=np.full(301,np.nan)
 plt.ion()
 fig_term, ax_term = plt.subplots()
 line_term, = ax_term.plot([],[])
@@ -536,6 +536,7 @@ while t<t_end:
         if len(nan_idx) > 0:  
            time_values[nan_idx[0]] = t 
         
+        
            
         thk = H0_.compute_vertex_values()
         bed = B0.compute_vertex_values()
@@ -567,8 +568,22 @@ while t<t_end:
         ph_hs.set_ydata(h_s0.compute_vertex_values())
         ax[3].set_ylim(0,h_s0.compute_vertex_values().max()+10)
  
+        #i added this
+        terminus_indices= np.where(thk>50)[0]#Get the last index where thickness is not 1
+        
+        
+        if terminus_indices.size>= 4:
+            terminus_cell =thk[terminus_indices[-5:]] # Get the last index where thickness > 1
+            term_thk = np.mean(terminus_cell)
+        else:
+            term_thk=np.nan 
+            
+        # nan_idx = np.where(np.isnan(term_thk_val))[0]
+        # if len(nan_idx) > 0:
+        #     term_thk_val[nan_idx[0]] = term_thk
+        
         #updates time plot, i added this
-        line_term.set_data(time_values, g_)
+        line_term.set_data(time_values,term_thk)
         ax_term.relim()  
         ax_term.autoscale_view()  
         fig_term.canvas.draw_idle()
@@ -577,6 +592,7 @@ while t<t_end:
             #pause(0.00001)
             fig.canvas.start_event_loop(0.001)
             fig.canvas.draw_idle()
+        if counter%50==0:
             fig_term.canvas.start_event_loop(0.001)
 
         t+=dt_float
