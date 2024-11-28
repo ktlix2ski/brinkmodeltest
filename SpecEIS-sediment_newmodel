@@ -441,16 +441,22 @@ sed_solver = df.NonlinearVariationalSolver(sed_problem, solver_parameters=solver
 ###############################################################################
 
 plt.ion()
-fig, ax = plt.subplots()
+fig, ax = plt.subplots(nrows=4,sharex=True,figsize=(10,12))
 
+#Plotting Glacier Profile
 xx = df.interpolate(x,Q_dg).dat.data[:]
-ph_bed, = ax.plot(xx,B0.dat.data[:],'k-')
+ph_bed, = ax[0].plot(xx,B0.dat.data[:],'k-')
 base = df.interpolate(Base,Q_dg)
-ph_base, = ax.plot(xx,base.dat.data[:],'b-')
+ph_base, = ax[0].plot(xx,base.dat.data[:],'b-')
 surf = df.interpolate(S,Q_dg)
-ph_surf, = ax.plot(xx,surf.dat.data[:],'b-')
+ph_surf, = ax[0].plot(xx,surf.dat.data[:],'b-')
 sed = df.interpolate(B0 + h_s0,Q_dg)
-ph_sed, = ax.plot(xx,sed.dat.data[:],'g-')
+ph_sed, = ax[0].plot(xx,sed.dat.data[:],'g-')
+
+#KT: Plotting 
+thick = df.interpolate(h_s,Q_dg)
+ph_thick, = ax[1].plot(xx,thick.dat.data[:],'b-')
+
 
 
 ##############################################################################
