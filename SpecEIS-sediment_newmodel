@@ -51,7 +51,7 @@ rho_w = 1029.0              # Seawater density
 rho_s = 1600.0              # Sediment density
 rho_r = 2750.0              # Bedrock density
 
-La = 3.35e5
+La = 3.35e5                 #KT: this appears to be the latent heat of melting?
 
 g = 9.81                    # Gravitational acceleration
 n = 3.0                     # Glen's exponent
@@ -449,13 +449,31 @@ ph_bed, = ax[0].plot(xx,B0.dat.data[:],'k-')
 base = df.interpolate(Base,Q_dg)
 ph_base, = ax[0].plot(xx,base.dat.data[:],'b-')
 surf = df.interpolate(S,Q_dg)
-ph_surf, = ax[0].plot(xx,surf.dat.data[:],'b-')
+ph_surf, = ax[0].plot(xx,surf.dat.data[:],'c-')
 sed = df.interpolate(B0 + h_s0,Q_dg)
 ph_sed, = ax[0].plot(xx,sed.dat.data[:],'g-')
 
-#KT: Plotting 
-thick = df.interpolate(h_s,Q_dg)
-ph_thick, = ax[1].plot(xx,thick.dat.data[:],'b-')
+
+#KT: Plotting grounded, velocities, 
+# gl = 
+# ph_grounded, = ax[1].plot(x,np.zeros_like(x),'k-',lw=1.0)
+# ax[1].set_ylim(-0.05,1.05)
+# ax[1].set_ylabel('Grounded')
+
+# ph_us, = ax[2].plot(x,np.zeros_like(x),'r-',lw=1.5, label = 'Surface Velocity')
+# ph_ub, = ax[2].plot(x,np.zeros_like(x),'g:',lw=1.5, label = 'Basal Velocity')
+# ax[2].set_ylim(0,500)
+# ax[2].set_ylabel('Speed (m/a)')
+
+# ph_hs, = ax[3].plot(x,np.zeros_like(x),'k-',lw=1.0)
+# ax[3].set_ylabel('Sed. Thk.')
+# ax[3].set_xlabel('Dist.')
+
+# ax[0].legend(loc = 'center right', fontsize = 10)
+# ax[2].legend(loc = 'center right', fontsize = 10)
+
+#thick = df.interpolate(h_s,Q_dg)
+#ph_thick, = ax[1].plot(xx,thick.dat.data[:],'b-')
 
 
 
@@ -468,6 +486,10 @@ t = 0.0
 t_end = 30000
 
 counter = 0
+
+#KT: Time counter display for model run
+time_values = np.full(301,np.nan) #i added this
+time_text = ax[0].text(0.70,0.90,'', transform=ax[0].transAxes, fontsize = 12) #i added this
 
 # Maximum time step!!  Increase with caution.
 dt_max = 5.0
@@ -518,6 +540,15 @@ while t<t_end:
         dt.assign(dt_float)
 
         # perform plotting
+        years = int(t // 365)
+        days = t % 365
+        time_text.set_text(f'Time: {years} years, {days:.2f} days')  #KT
+                
+        nan_idx = np.where(np.isnan(time_values))[0]  #KT:this adds times to the time_values as it runs through the loop and replaces nans
+        if len(nan_idx) > 0:  
+           time_values[nan_idx[0]] = t 
+
+
         base = df.interpolate(Base,Q_dg)
         surf = df.interpolate(S,Q_dg)
         sed = df.interpolate(B0 + h_s0,Q_dg)
