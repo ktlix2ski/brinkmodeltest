@@ -81,7 +81,9 @@ h_ref = df.Constant(10)        # Thickness at which diffusivity stops increasing
                                # a thickness-linear flux for thin sediment and thickness-independent flux for thick sediment.  
 
 
-dt_float = 0.1           # Time step
+dt_float = 0.1           # OG Time step
+#dt_float = 5.0           # KT: New Time step 
+
 dt = df.Constant(dt_float)
 
 
@@ -492,7 +494,8 @@ time_values = np.full(301,np.nan) #i added this
 time_text = ax[0].text(0.70,0.90,'', transform=ax[0].transAxes, fontsize = 12) #i added this
 
 # Maximum time step!!  Increase with caution.
-dt_max = 5.0
+dt_max = 5.0   #OG time step
+#dt_max = 10.0    #KT: trying bigger timestep
 
 # Loop over time
 while t<t_end:
@@ -540,9 +543,9 @@ while t<t_end:
         dt.assign(dt_float)
 
         # perform plotting
-        years = int(t // 365)
-        days = t % 365
-        time_text.set_text(f'Time: {years} years, {days:.2f} days')  #KT
+        years = int(t // 366)
+        months = int((t % 360) // 30)
+        time_text.set_text(f'Time: {years} years, {months} months')  #KT
                 
         nan_idx = np.where(np.isnan(time_values))[0]  #KT:this adds times to the time_values as it runs through the loop and replaces nans
         if len(nan_idx) > 0:  
