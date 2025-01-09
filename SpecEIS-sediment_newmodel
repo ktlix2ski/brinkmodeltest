@@ -200,6 +200,14 @@ h_sd0 = df.Function(Q_dg)
 psi = df.TestFunction(Q_dg)
 dQ = df.TrialFunction(Q_dg)
 
+# Functions for computing the grounded indicator
+grounded = df.Function(Q_dg)
+grounded.vector()[:] = 1
+dg = df.TrialFunction(Q_dg)
+
+ghat = df.Function(Q_cg)
+gl = df.Constant(0)
+
 # Derived geometric quantities
 Bhat = B + h_s                               # Top of sediment            
 
@@ -447,6 +455,7 @@ fig, ax = plt.subplots(nrows=4,sharex=True,figsize=(10,12))
 
 #Plotting Glacier Profile
 xx = df.interpolate(x,Q_dg).dat.data[:]
+
 ph_bed, = ax[0].plot(xx,B0.dat.data[:],'k-')
 base = df.interpolate(Base,Q_dg)
 ph_base, = ax[0].plot(xx,base.dat.data[:],'b-')
@@ -457,7 +466,9 @@ ph_sed, = ax[0].plot(xx,sed.dat.data[:],'g-')
 
 
 #KT: Plotting grounded, velocities, 
-# gl = 
+ph_grounded, = ax[1].plot(xx, grounded.dat.data[:], 'k-')
+ax[1].set_ylim(-0.05, 1.05)
+ax[1].set_ylabel('Grounded')
 # ph_grounded, = ax[1].plot(x,np.zeros_like(x),'k-',lw=1.0)
 # ax[1].set_ylim(-0.05,1.05)
 # ax[1].set_ylabel('Grounded')
@@ -542,15 +553,20 @@ while t<t_end:
         dt_float = min(1.05*dt_float,dt_max)
         dt.assign(dt_float)
 
-        # perform plotting
-        years = int(t // 366)
-        months = int((t % 360) // 30)
-        time_text.set_text(f'Time: {years} years, {months} months')  #KT
-                
-        nan_idx = np.where(np.isnan(time_values))[0]  #KT:this adds times to the time_values as it runs through the loop and replaces nans
-        if len(nan_idx) > 0:  
-           time_values[nan_idx[0]] = t 
+        # Perform plotting
 
+
+        #KT start
+        time_text.set_text(f'Time: {t:.2f}') 
+
+        nan_idx = np.where(np.isnan(time_values))[0]  #this adds times to the time_values as it runs through the loop and replaces nans
+        if len(nan_idx) > 0:  
+           time_values[nan_idx[0]] = t      
+
+        grounded = df.interpolate(ghat,Q_dg)
+        g_ = grounded.dat.data[:]
+        ph_grounded.set_ydata(g_.dat.data[:])
+        #KT end
 
         base = df.interpolate(Base,Q_dg)
         surf = df.interpolate(S,Q_dg)
