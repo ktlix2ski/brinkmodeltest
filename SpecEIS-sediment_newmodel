@@ -463,20 +463,20 @@ surf = df.interpolate(S,Q_dg)
 ph_surf, = ax[0].plot(xx,surf.dat.data[:],'c-')
 sed = df.interpolate(B0 + h_s0,Q_dg)
 ph_sed, = ax[0].plot(xx,sed.dat.data[:],'g-')
-
+ax[0].plot(xx,np.zeros_like(xx),'b:',lw=0.5)
+ax[0].set_ylabel('Elevation')
 
 #KT: Plotting grounded, velocities, 
-ph_grounded, = ax[1].plot(xx, grounded.dat.data[:], 'k-')
+ph_grounded, = ax[1].plot(xx, np.zeros_like(xx), 'k-')
 ax[1].set_ylim(-0.05, 1.05)
 ax[1].set_ylabel('Grounded')
-# ph_grounded, = ax[1].plot(x,np.zeros_like(x),'k-',lw=1.0)
-# ax[1].set_ylim(-0.05,1.05)
-# ax[1].set_ylabel('Grounded')
 
-# ph_us, = ax[2].plot(x,np.zeros_like(x),'r-',lw=1.5, label = 'Surface Velocity')
-# ph_ub, = ax[2].plot(x,np.zeros_like(x),'g:',lw=1.5, label = 'Basal Velocity')
-# ax[2].set_ylim(0,500)
-# ax[2].set_ylabel('Speed (m/a)')
+thk = H0.dat.data[:]
+
+ph_us, = ax[2].plot(xx,np.zeros_like(xx),'r-',lw=1.5, label = 'Surface Velocity')
+ph_ub, = ax[2].plot(xx,np.zeros_like(xx),'g:',lw=1.5, label = 'Basal Velocity')
+ax[2].set_ylim(0,500)
+ax[2].set_ylabel('Speed (m/a)')
 
 # ph_hs, = ax[3].plot(x,np.zeros_like(x),'k-',lw=1.0)
 # ax[3].set_ylabel('Sed. Thk.')
@@ -556,17 +556,29 @@ while t<t_end:
         # Perform plotting
 
 
-        #KT start
+        #KT start adding time 
         time_text.set_text(f'Time: {t:.2f}') 
 
         nan_idx = np.where(np.isnan(time_values))[0]  #this adds times to the time_values as it runs through the loop and replaces nans
         if len(nan_idx) > 0:  
            time_values[nan_idx[0]] = t      
+        #KT end adding time
 
-        grounded = df.interpolate(ghat,Q_dg)
+        #KT start gl plot
+        grounded = df.interpolate(floating,Q_dg)
         g_ = grounded.dat.data[:]
-        ph_grounded.set_ydata(g_.dat.data[:])
-        #KT end
+        ph_grounded.set_ydata(grounded.dat.data[:])
+        #KT end gl plot
+
+        #KT start velocity plot
+        us_ = ubar0.dat.data[:]
+        ub_ = udef0.dat.data[:]
+        us_[thk<=(thklim+1e-2)] = np.nan
+        ub_[thk<=(thklim+1e-2)] = np.nan
+
+        # ph_us.set_ydata(us_)
+        # ph_ub.set_ydata(ub_)
+        #KT end velocity plot
 
         base = df.interpolate(Base,Q_dg)
         surf = df.interpolate(S,Q_dg)
