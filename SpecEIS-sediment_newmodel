@@ -447,6 +447,20 @@ upper_bounds_sed.sub(3).assign(1e10)
 sed_solver = df.NonlinearVariationalSolver(sed_problem, solver_parameters=solver_parameters_sed)
 
 ###############################################################################
+#########################  KT:Initialize velocities  ##########################
+###############################################################################
+# from old model
+ubar0 = df.Function(Q_cg)
+udef0 = df.Function(Q_cg)
+ubar0_array = ubar0.vector().get_local()
+udef0_array = udef0.vector().get_local()
+ubar0_array += 1e-1 * np.random.randn(len(ubar0_array)) + 100.0
+udef0_array += 1e-3 * np.random.randn(len(udef0_array))
+ubar0.vector().set_local(ubar0_array)
+udef0.vector().set_local(udef0_array)
+ubar0.vector().apply("insert")
+udef0.vector().apply("insert") 
+###############################################################################
 #########################  Animation Init.  ###################################
 ###############################################################################
 
@@ -464,20 +478,14 @@ ph_surf, = ax[0].plot(xx,surf.dat.data[:],'c-')
 sed = df.interpolate(B0 + h_s0,Q_dg)
 ph_sed, = ax[0].plot(xx,sed.dat.data[:],'g-')
 ax[0].plot(xx,np.zeros_like(xx),'b:',lw=0.5)
-ax[0].set_ylabel('Elevation')
+ax[0].set_ylabel('Elevation (m)')
 
-#KT: Plotting grounded, velocities, 
+#KT: Start plotting grounded, velocities, sed thickness
 ph_grounded, = ax[1].plot(xx, np.zeros_like(xx), 'k-')
 ax[1].set_ylim(-0.05, 1.05)
 ax[1].set_ylabel('Grounded')
 
-#KT: interpolating the H0 nodes from the cells to get an array of 301
 thk = np.zeros(300)
-ub_= np.zeros(300)
-us_= np.zeros(300)
-
-ub_function = df.Function(Q_cg)
-us_function = df.Function(Q_cg)
 
 ph_us, = ax[2].plot(xx,np.zeros_like(xx),'r-',lw=1.5, label = 'Surface Velocity')
 ph_ub, = ax[2].plot(xx,np.zeros_like(xx),'g:',lw=1.5, label = 'Basal Velocity')
@@ -486,17 +494,13 @@ ax[2].set_ylabel('Speed (m/a)')
 
 
 
-# ph_hs, = ax[3].plot(x,np.zeros_like(x),'k-',lw=1.0)
-# ax[3].set_ylabel('Sed. Thk.')
-# ax[3].set_xlabel('Dist.')
+ph_hs, = ax[3].plot(xx,np.zeros_like(xx),'k-',lw=1.0)
+ax[3].set_ylabel('Sediment Thickness (m?)')
+ax[3].set_xlabel('Distance')
 
-# ax[0].legend(loc = 'center right', fontsize = 10)
-# ax[2].legend(loc = 'center right', fontsize = 10)
-
-#thick = df.interpolate(h_s,Q_dg)
-#ph_thick, = ax[1].plot(xx,thick.dat.data[:],'b-')
-
-
+ax[0].legend(loc = 'center right', fontsize = 10)
+ax[2].legend(loc = 'center right', fontsize = 10)
+#KT: end plots
 
 ##############################################################################
 ############################  Run Model  #####################################
@@ -580,19 +584,20 @@ while t<t_end:
         #KT end gl plot
 
         #KT start velocity plot
-        ub_interpolated = df.interpolate(ub_function, Q_dg)  # Interpolate to match the 300-cell grid
-        us_interpolated = df.interpolate(us_function, Q_dg)
+        us_ = df.project(u(0), Q_dg).vector().get_local()
+        ub_ = df.project(u(1), Q_dg).vector().get_local()
 
-        ub_ = ub_interpolated.vector().get_local()
-        us_ = us_interpolated.vector().get_local()
 
+        thk = H0.vector().get_local()
         us_[thk<=(thklim+1e-2)] = np.nan
         ub_[thk<=(thklim+1e-2)] = np.nan
-
-        ph_us.set_ydata(us_)
-        ph_ub.set_ydata(ub_)
         #KT end velocity plot
 
+        #KT: start sed thickness plot
+
+        ph_hs.set_ydata(h_s0.dat.data())
+        ax[3].set_ylim(0,h_s0.dat.data().max()+10)
+        #KT: end sed plot
         base = df.interpolate(Base,Q_dg)
         surf = df.interpolate(S,Q_dg)
         sed = df.interpolate(B0 + h_s0,Q_dg)
@@ -601,6 +606,9 @@ while t<t_end:
         ph_base.set_ydata(base.dat.data[:])
         ph_surf.set_ydata(surf.dat.data[:])
         ph_sed.set_ydata(sed.dat.data[:])
+
+        ph_us.set_ydata(us_)
+        ph_ub.set_ydata(ub_)
 
         t+=dt_float
         counter+=1
