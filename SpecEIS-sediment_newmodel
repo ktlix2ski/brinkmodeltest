@@ -474,9 +474,10 @@ ph_surface, = ax_v.plot([], [], 'r-', label="Surface Velocity (max)")
 ph_basal, = ax_v.plot([], [], 'g:', label="Basal Velocity (max)")
 ax_v.set_xlim(0, 100)  
 ax_v.set_ylim(0, 100)    
-ax_v.set_xlabel("Time (years)")
-ax_v.set_ylabel("Velocity (m/a)")
+ax_v.set_xlabel("Time")
+ax_v.set_ylabel("Velocity")
 ax_v.set_title("Velocity Evolution Over Time")
+ax_v.legend(loc = 'center right', fontsize = 10)
 
 #Plotting Glacier Profile
 xx = df.interpolate(x,Q_dg).dat.data[:]
@@ -503,12 +504,12 @@ thk = np.zeros(300)
 ph_us, = ax[2].plot(xx,np.zeros_like(xx),'r-',lw=1.5, label = 'Surface Velocity')
 ph_ub, = ax[2].plot(xx,np.zeros_like(xx),'g:',lw=1.5, label = 'Basal Velocity')
 ax[2].set_ylim(0,500)
-ax[2].set_ylabel('Speed (m/a)')
+ax[2].set_ylabel('Speed')
 
 
 hs = df.interpolate(h_s0, Q_dg)
 ph_hs, = ax[3].plot(xx,np.zeros_like(xx),'k-',lw=1.0)
-ax[3].set_ylabel('Sediment Thickness (m?)')
+ax[3].set_ylabel('Sediment Thickness')
 
 ax[2].legend(loc = 'center right', fontsize = 10)
 
@@ -541,7 +542,9 @@ counter = 0
 #KT: Time counter display for model run
 time_text = ax[0].text(0.70,0.90,'', transform=ax[0].transAxes, fontsize = 12) #i added this
 
-#KT: stores time values
+#KT: stores time values every 10 time steps
+velocity_update_interval = 10  # Update every 10 timesteps
+step_counter = 0
 
 # Maximum time step!!  Increase with caution.
 dt_max = 5.0   #OG time step
@@ -649,22 +652,26 @@ while t<t_end:
 
 
         #KT: trying to record velocities over time
-        time_values.append(t)
+        step_counter += 1
+        if step_counter % velocity_update_interval == 0:
+            time_values.append(t)
 
-        surface_velocity.append(np.nanmax(us_))  
-        basal_velocity.append(np.nanmax(ub_))
-        ph_surface.set_data(time_values, surface_velocity)
-        ph_basal.set_data(time_values, basal_velocity)
+            surface_velocity.append(np.nanmax(us_))  
+            basal_velocity.append(np.nanmax(ub_))
+            ph_surface.set_xdata(time_values)
+            ph_basal.set_xdata(time_values)
+            ph_surface.set_ydata(surface_velocity)
+            ph_basal.set_ydata(basal_velocity)
 
-        if t > ax_v.get_xlim()[1]:
-            ax_v.set_xlim(0, t + 100)  # Extend time axis
+            if t > ax_v.get_xlim()[1]:
+                ax_v.set_xlim(0, t + 100)  # Extend time axis
 
-        if max(surface_velocity + basal_velocity) > ax_v.get_ylim()[1]:
-            ax_v.set_ylim(0, max(surface_velocity + basal_velocity) + 50)  # Extend velocity axis
+            if max(surface_velocity + basal_velocity) > ax_v.get_ylim()[1]:
+                ax_v.set_ylim(0, max(surface_velocity + basal_velocity) + 50)  # Extend velocity axis
 
         # Redraw the figure
-        # fig_v.canvas.start_event_loop(0.001) 
-        # fig_v.canvas.draw_idle()
+        fig_v.canvas.draw()
+        plt.show()
         #KT: end
 
         t+=dt_float
