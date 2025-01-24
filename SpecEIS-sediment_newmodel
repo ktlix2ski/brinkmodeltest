@@ -101,7 +101,7 @@ x, = df.SpatialCoordinate(mesh)
 
 surface_expression = (zmax - zmin)*df.exp(-3*x/L)  + zmin - amp*df.sin(4*np.pi*x/L) + thklim
 bed_expression = (zmax - zmin)*df.exp(-3*x/L)  + zmin - amp*df.sin(4*np.pi*x/L)
-beta_expression = df.Constant(50.0)
+beta_expression = df.Constant(50.0)         #KT interp: basal friction coefficient?
 
 
 #########################################################
@@ -222,11 +222,13 @@ D = softplus(-Bhat,df.Constant(0),alpha=5.0) # Water depth
 S = Base + H                                 # Ice surface
 
 # Basal traction
-beta2 = df.interpolate(beta_expression,Q_cg)
+beta2 = df.interpolate(beta_expression,Q_cg)  #KT: beta_expression = 50
 
 # Surface mass balance
 climate_factor = df.Constant(1)      
-adot = climate_factor*(8 - 16/(4*L/3.)*x)
+#adot = climate_factor*(8 - 16/(4*L/3.)*x)  #this was hardcoded in new model
+adot = climate_factor*(amin + (amax-amin)/(1-df.exp(-c))*(1.-df.exp(-c*((S/2000)))))
+
 
 ########################################################
 #################   MOMENTUM BALANCE   #################
@@ -234,17 +236,17 @@ adot = climate_factor*(8 - 16/(4*L/3.)*x)
 
 class VerticalBasis(object):
     def __init__(self,u,coef,dcoef):
-        self.u = u
-        self.coef = coef
-        self.dcoef = dcoef
+        self.u = u              #KT interp: u is a list of velocity components
+        self.coef = coef        #KT interp: coef function defines how much each velocity component contributes at specific depth (s)
+        self.dcoef = dcoef      #KT interp: list of functions defining how du/ds changes with s
 
-    def __call__(self,s):
+    def __call__(self,s):   #KT interp: sums ubar and udef weigted by their basis functions (coef)
         return sum([u*c(s) for u,c in zip(self.u,self.coef)])
 
-    def ds(self,s):
+    def ds(self,s):         #KT interp: depth derivative du/ds, computes vertical gradient of u(s) by using derivatives of basis functions (dcoef)
         return sum([u*c(s) for u,c in zip(self.u,self.dcoef)])
 
-    def dx(self,s,x):
+    def dx(self,s,x):       #KT interp: horizontal gradient du/dx, comutes horizontal gradient of u(s), allows for spatial variability
         return sum([u.dx(x)*c(s) for u,c in zip(self.u,self.coef)])
 
 class VerticalIntegrator(object):
@@ -256,33 +258,39 @@ class VerticalIntegrator(object):
     def intz(self,f):
         return sum([self.integral_term(f,s,w) for s,w in zip(self.points,self.weights)])
 
-def dsdx(s):
+def dsdx(s):                        #KT interp: placeholder func for ds/dx
     return 0#1./H_*(S.dx(0) - s*H_.dx(0))
 
-def dsdz(s):
+def dsdz(s):                        #KT interp: computes ds/dz = -1/H
     return -1./H
 
 # ANSATZ    
 p = 4.0
-coef = [lambda s:1.0, lambda s:1./p*((p+1)*s**p-1.)]
-dcoef = [lambda s:0.0, lambda s:(p+1)*s**(p-1)]
+coef = [lambda s:1.0, lambda s:1./p*((p+1)*s**p-1.)]        #KT interp: defines velocity distribution over depth
+    #KT: lambda s:1.0 = ubar contribution, basis function 1
+    #KT: lambda s:1./p*((p+1)*s**p-1.) = variation due to deformation,vertical variation, basis function 2
 
-u_ = [ubar,udef]
-u0_ = [ubar0,udef0]
-phi_ = [phibar,phidef]
+dcoef = [lambda s:0.0, lambda s:(p+1)*s**(p-1)]             #KT interp: derivatives of basis functions
+    #KT: lambda s:0.0 = derivative of basis function 1, no depth dependency for ubar
+    #KT: lambda s:(p+1)*s**(p-1) = derivative of basis function 2, depth varitaion of deformation
+
+# KT interp: lists that group related velocity & basis function components
+u_ = [ubar,udef]        #KT interp: combines ubar and udef to represent full velocity profile u(s)        
+u0_ = [ubar0,udef0]      #KT interp: u_ but initial conditions
+phi_ = [phibar,phidef]       #KT interp: test functions
 
 u = VerticalBasis(u_,coef,dcoef)
 phi = VerticalBasis(phi_,coef,dcoef)
 
-def eta_v(s):
+def eta_v(s):       #KT interp: computes effective viscosity at depth based on vel gradient?
     return b/2.*((u.dx(s,0) + u.ds(s)*dsdx(s))**2 \
                 +0.25*((u.ds(s)*dsdz(s))**2) \
                 + eps_reg)**((1.-n)/(2*n))
 
-def membrane_xx(s):
+def membrane_xx(s):     #KT interp: computes longitudinal stress components using vel. and viscosity?
     return (phi.dx(s,0) + phi.ds(s)*dsdx(s))*H*eta_v(s)*(4*(u.dx(s,0) + u.ds(s)*dsdx(s)))
 
-def shear_xz(s):
+def shear_xz(s):        #KT interp: computes shear stress components using vertical vel. gradients?
     return dsdz(s)**2*phi.ds(s)*H*eta_v(s)*u.ds(s)
 
 points,weights = full_quad(4) 
@@ -304,16 +312,16 @@ I_stress = (- vi.intz(membrane_xx) - vi.intz(shear_xz) - phi(1)*beta2*u(1)*N)*df
 #############################################################################
 
 # Jumps and averages for DG0 method
-H_avg = 0.5*(H('+') + H('-'))
-H_jump = H('+')*nhat('+') + H('-')*nhat('-')
+H_avg = 0.5*(H('+') + H('-'))       #KT interp: average of ice thickness on either side of interface
+H_jump = H('+')*nhat('+') + H('-')*nhat('-')        #KT interp: difference in flux terms for H across interface
 xsi_avg = 0.5*(xsi('+') + xsi('-'))
 xsi_jump = xsi('+')*nhat('+') + xsi('-')*nhat('-')
 
-uvec = df.as_vector([ubar,])
-unorm = (df.dot(uvec,uvec))**0.5
-uH = df.avg(ubar)*H_avg + 0.5*df.avg(unorm)*H_jump
+uvec = df.as_vector([ubar,])        #KT interp: constructs velocity vector from ubar
+unorm = (df.dot(uvec,uvec))**0.5            #KT interp: scalar vel magnitude
+uH = df.avg(ubar)*H_avg + 0.5*df.avg(unorm)*H_jump      #KT interp: trasport term for ice thickness
 
-# Flotation indicator
+# Flotation indicator               
 floating = df.conditional(
                 df.lt(H, rho_w/rho_i*(0 - Bhat)),
                 df.Constant(1.0),df.Constant(0.0))
@@ -366,10 +374,10 @@ Qs_upwind = Qs_avg + 0.5*Qs_jump
 
 h = df.CellDiameter(mesh)
 
-R_Qs = (ddot - edot)*psi_Q*df.dx + df.dot(Qs_upwind,psiQ_jump)*df.dS
-R_hs = psi_h*((h_s - h_s0)/dt + rho_r/rho_s*Bdot - ddot + edot)*df.dx
-R_B = psi_B*((B-B0)/dt - Bdot)*df.dx
-R_heff = psi_eff*(h_eff - softplus(h_0,Base-Bhat,alpha=5.0))*df.dx
+R_Qs = (ddot - edot)*psi_Q*df.dx + df.dot(Qs_upwind,psiQ_jump)*df.dS        #KT interp: sediment flux?
+R_hs = psi_h*((h_s - h_s0)/dt + rho_r/rho_s*Bdot - ddot + edot)*df.dx       #KT interp: sediment thickness changes?
+R_B = psi_B*((B-B0)/dt - Bdot)*df.dx                                           #KT interp: changes in bedrock elevation
+R_heff = psi_eff*(h_eff - softplus(h_0,Base-Bhat,alpha=5.0))*df.dx          #KT interp: effective layer thickness?
 
 # Weak form of sediment dynamics, solves for bedrock elevation, fluvial sed. flux,
 # sediment thickness, projected sediment thickness, and effective water layer thickness.
@@ -449,7 +457,7 @@ sed_solver = df.NonlinearVariationalSolver(sed_problem, solver_parameters=solver
 ###############################################################################
 #########################  KT:Initialize velocities  ##########################
 ###############################################################################
-# from old model
+# from old model, random perturbations in velocity
 ubar0 = df.Function(Q_cg)
 udef0 = df.Function(Q_cg)
 ubar0_array = ubar0.vector().get_local()
@@ -548,151 +556,180 @@ step_counter = 0
 
 # Maximum time step!!  Increase with caution.
 dt_max = 5.0   #OG time step
-#dt_max = 10.0    #KT: trying bigger timestep
+
+#KT: cell indexing to track accumulation and find time 
+ind = 60
+init_H = thick.dat.data[ind]
+target_H = init_H + 5
+
+accum_array = []
+
 
 # LOOP OVER TIME: START OF MODEL SIMULATION
-while t<t_end:
-    try: # If the solvers don't converge, reduce the time step and try again.
-        print(t,dt_float)
-        
-        if counter%1==0:
-            fig.canvas.start_event_loop(0.00001)
-            fig.canvas.draw_idle()
+try:
+    while t<t_end:
+        try: # If the solvers don't converge, reduce the time step and try again.
+            print(t,dt_float)
+            
+            if counter%1==0:
+                fig.canvas.start_event_loop(0.00001)
+                fig.canvas.draw_idle()
 
-        # Solve the velocity-ice thickness equations
-        mass_solver.solve(bounds=(lower_bounds,upper_bounds))
+            # Solve the velocity-ice thickness equations
+            mass_solver.solve(bounds=(lower_bounds,upper_bounds))
 
-        # Solve for water flux
-        df.solve(A_Qw == b_Qw,Qw)
+            # Solve for water flux
+            df.solve(A_Qw == b_Qw,Qw)
 
-        # Solve the sediment equations (excluding diffusion)
-        sed_solver.solve(bounds=(lower_bounds_sed,upper_bounds_sed))
+            # Solve the sediment equations (excluding diffusion)
+            sed_solver.solve(bounds=(lower_bounds_sed,upper_bounds_sed))
 
-        # Update the previous thickness
-        ubar0.dat.data[:] = U.dat.data[0]
-        udef0.dat.data[:] = U.dat.data[1]
-        H0.dat.data[:] = U.dat.data[2]
+            # Update the previous thickness
+            ubar0.dat.data[:] = U.dat.data[0]
+            udef0.dat.data[:] = U.dat.data[1]
+            H0.dat.data[:] = U.dat.data[2]
 
-        # Update previous bed elevation
-        B0.dat.data[:] = T.dat.data[0]
+            # Update previous bed elevation
+            B0.dat.data[:] = T.dat.data[0]
 
-        # Update previous sediment thickness
-        h_s0.dat.data[:] = T.dat.data[2]
+            # Update previous sediment thickness
+            h_s0.dat.data[:] = T.dat.data[2]
 
-        # diffusion mechanics
-        # Set current sed thickness to solution from sed transport
-        h_sd0.dat.data[:] = h_s0.dat.data[:]
-        P.sub(0).assign(h_s0)
+            # diffusion mechanics
+            # Set current sed thickness to solution from sed transport
+            h_sd0.dat.data[:] = h_s0.dat.data[:]
+            P.sub(0).assign(h_s0)
 
-        # Solve diffusion equation
-        df.solve(R_d==0,P)
+            # Solve diffusion equation
+            df.solve(R_d==0,P)
 
-        # Update main sed thickness variables
-        h_s0.dat.data[:] = P.dat.data[0]
-        T.sub(2).assign(h_s0)
-
-
-        # Increase time step if solvers complete successfully
-        dt_float = min(1.05*dt_float,dt_max)
-        dt.assign(dt_float)
-
-        ############ PERFORM PLOTTING ######################
+            # Update main sed thickness variables
+            h_s0.dat.data[:] = P.dat.data[0]
+            T.sub(2).assign(h_s0)
 
 
-        #KT start adding time 
-        time_text.set_text(f'Time: {t:.2f}') 
+            # Increase time step if solvers complete successfully
+            dt_float = min(1.05*dt_float,dt_max)
+            dt.assign(dt_float)
 
-        nan_idx = np.where(np.isnan(time_values))[0]  #this adds times to the time_values as it runs through the loop and replaces nans
-        if len(nan_idx) > 0:  
-           time_values[nan_idx[0]] = t      
-        #KT end adding time
-
-        #KT start gl plot
-        grounded = df.interpolate(floating,Q_dg)
-        g_ = grounded.dat.data[:]
-        ph_grounded.set_ydata(grounded.dat.data[:])
-        #KT end gl plot
-
-        #KT start velocity plot
-        us_ = df.project(u(0), Q_dg).vector().get_local()
-        ub_ = df.project(u(1), Q_dg).vector().get_local()
+            ############ PERFORM PLOTTING ######################
 
 
-        thk = H0.vector().get_local()
-        us_[thk<=(thklim+1e-2)] = np.nan
-        ub_[thk<=(thklim+1e-2)] = np.nan
-        #KT end velocity plot
+            #KT start adding time 
+            time_text.set_text(f'Time: {t}') 
 
-        base = df.interpolate(Base,Q_dg)
-        surf = df.interpolate(S,Q_dg)
-        sed = df.interpolate(B0 + h_s0,Q_dg) 
-        hs = df.interpolate(h_s0,Q_dg)
-        thick = df.interpolate(H0,Q_dg)
+            nan_idx = np.where(np.isnan(time_values))[0]  #this adds times to the time_values as it runs through the loop and replaces nans
+            if len(nan_idx) > 0:  
+                time_values[nan_idx[0]] = t      
+            #KT end adding time
 
-        ph_bed.set_ydata(B0.dat.data[:])
-        ph_base.set_ydata(base.dat.data[:])
-        ph_surf.set_ydata(surf.dat.data[:])
-        ph_sed.set_ydata(sed.dat.data[:])
+            #KT start gl plot
+            grounded = df.interpolate(floating,Q_dg)
+            g_ = grounded.dat.data[:]
+            ph_grounded.set_ydata(grounded.dat.data[:])
+            #KT end gl plot
 
-
-        ph_us.set_ydata(us_)
-        ph_ub.set_ydata(ub_)
-
-        #KT: added to avoid issues with NaNs in the thklim 
-        us_filtered = us_[np.isfinite(us_)]  # Keeps only finite values
-        if len(us_filtered) > 0:
-            ax[2].set_ylim(0, us_filtered.max() + 50) #KT: actively changing y axis
+            #KT start velocity plot
+            us_ = df.project(u(0), Q_dg).vector().get_local()
+            ub_ = df.project(u(1), Q_dg).vector().get_local()
 
 
-        ph_hs.set_ydata(hs.dat.data[:])
-        ax[3].set_ylim(0,hs.dat.data[:].max()+5) #KT: actively changing y axis
+            thk = H0.vector().get_local()
+            us_[thk<=(thklim+1e-2)] = np.nan
+            ub_[thk<=(thklim+1e-2)] = np.nan
+            #KT end velocity plot
 
-        ph_thick.set_ydata(thick.dat.data[:])
-        ax[4].set_ylim(0,thick.dat.data[:].max()+100)  #KT: actively changing y axis
+            base = df.interpolate(Base,Q_dg)
+            surf = df.interpolate(S,Q_dg)
+            sed = df.interpolate(B0 + h_s0,Q_dg) 
+            hs = df.interpolate(h_s0,Q_dg)
+            thick = df.interpolate(H0,Q_dg)
+
+            ph_bed.set_ydata(B0.dat.data[:])
+            ph_base.set_ydata(base.dat.data[:])
+            ph_surf.set_ydata(surf.dat.data[:])
+            ph_sed.set_ydata(sed.dat.data[:])
 
 
-        #KT: trying to record velocities over time
-        step_counter += 1
-        if step_counter % velocity_update_interval == 0:
-            time_values.append(t)
+            ph_us.set_ydata(us_)
+            ph_ub.set_ydata(ub_)
 
-            surface_velocity.append(np.nanmax(us_))  
-            basal_velocity.append(np.nanmax(ub_))
-            ph_surface.set_xdata(time_values)
-            ph_basal.set_xdata(time_values)
-            ph_surface.set_ydata(surface_velocity)
-            ph_basal.set_ydata(basal_velocity)
+            #KT: added to avoid issues with NaNs in the thklim 
+            us_filtered = us_[np.isfinite(us_)]  # Keeps only finite values
+            if len(us_filtered) > 0:
+                ax[2].set_ylim(0, us_filtered.max() + 50) #KT: actively changing y axis
 
-            if t > ax_v.get_xlim()[1]:
-                ax_v.set_xlim(0, t + 100)  # Extend time axis
 
-            if max(surface_velocity + basal_velocity) > ax_v.get_ylim()[1]:
-                ax_v.set_ylim(0, max(surface_velocity + basal_velocity) + 50)  # Extend velocity axis
+            ph_hs.set_ydata(hs.dat.data[:])
+            ax[3].set_ylim(0,hs.dat.data[:].max()+5) #KT: actively changing y axis
 
-        # Redraw the figure
-        fig_v.canvas.draw()
-        plt.show()
-        #KT: end
+            ph_thick.set_ydata(thick.dat.data[:])
+            ax[4].set_ylim(0,thick.dat.data[:].max()+100)  #KT: actively changing y axis
 
-        t+=dt_float
-        counter+=1
 
-    except df.ConvergenceError:
+            #KT: trying to record velocities over time
+            step_counter += 1
+            if step_counter % velocity_update_interval == 0:
+                time_values.append(t)
 
-        # If the solvers don't converge, reset variables to previous time step's succesful values and try again.  
-        U.sub(0).assign(1e-10)
-        U.sub(1).assign(1e-10)
-        U.sub(2).assign(H0)
+                surface_velocity.append(np.nanmax(us_))  
+                basal_velocity.append(np.nanmax(ub_))
+                ph_surface.set_xdata(time_values)
+                ph_basal.set_xdata(time_values)
+                ph_surface.set_ydata(surface_velocity)
+                ph_basal.set_ydata(basal_velocity)
 
-        T.sub(0).assign(B0)
-        T.sub(1).assign(df.Constant(0.0))
-        T.sub(2).assign(h_s0)
-        T.sub(3).assign(h_eff0)
+                if t > ax_v.get_xlim()[1]:
+                    ax_v.set_xlim(0, t + 100)  # Extend time axis
 
-        dt_float/=2.
-        dt.assign(dt_float)
-        print('convergence failed, reducing time step and trying again')
+                if max(surface_velocity + basal_velocity) > ax_v.get_ylim()[1]:
+                    ax_v.set_ylim(0, max(surface_velocity + basal_velocity) + 50)  # Extend velocity axis
 
-    if (dt_float < 1e-10): # Things have really gone off the rails and the simulation is shutting down
-        print("model stalling, time step approaching zero")
-        break
+            # Redraw the figure
+            fig_v.canvas.draw()
+            plt.show()
+            #KT: end
+
+            #KT 
+            current_H = thick.dat.data[ind]
+            if current_H >= target_H:
+                accum_array.append([t, current_H])
+                print(f"Time: {t:.2f}, Thickness at cell {ind}: {current_H:.2f}")
+                # Update target for the next 5 m increment
+                target_H += 5
+
+            t+=dt_float
+            counter+=1
+
+        except df.ConvergenceError:
+
+            # If the solvers don't converge, reset variables to previous time step's succesful values and try again.  
+            U.sub(0).assign(1e-10)
+            U.sub(1).assign(1e-10)
+            U.sub(2).assign(H0)
+
+            T.sub(0).assign(B0)
+            T.sub(1).assign(df.Constant(0.0))
+            T.sub(2).assign(h_s0)
+            T.sub(3).assign(h_eff0)
+
+            dt_float/=2.
+            dt.assign(dt_float)
+            print('convergence failed, reducing time step and trying again')
+
+        if (dt_float < 1e-10): # Things have really gone off the rails and the simulation is shutting down
+            print("model stalling, time step approaching zero")
+            break
+
+except KeyboardInterrupt:
+    # Handle user interruption (Ctrl+C)
+    print("Simulation interrupted! Saving data...") 
+
+finally:
+    # Save the data array even if interrupted or completed
+    savdir = os.path.expanduser("~/Desktop/Leconte/Model/Trial_Runs")
+    os.makedirs(savdir, exist_ok=True)
+    save_path = os.path.join(savdir, "accumdata.csv")
+    thickness_data_array = np.array(accum_array)
+    np.savetxt(save_path, thickness_data_array, delimiter=",", header="Time,Thickness", comments="")
+    print("Data saved to 'thickness_data.csv'")
