@@ -531,11 +531,11 @@ ax[4].set_ylim(0,500)
 ax[4].set_ylabel('Ice Thickness')
 #KT: end thickness plots
 
+
 #KT: first attempt at storing values over time 
 time_values = []  
 surface_velocity = []  
 basal_velocity = []
-
 
 ##############################################################################
 ############################  Run Model  #####################################
@@ -557,179 +557,167 @@ step_counter = 0
 # Maximum time step!!  Increase with caution.
 dt_max = 5.0   #OG time step
 
-#KT: cell indexing to track accumulation and find time 
-ind = 60
-init_H = thick.dat.data[ind]
-target_H = init_H + 5
+#KT: Initializing Dictionaries
+H_dict = {}
 
-accum_array = []
 
 
 # LOOP OVER TIME: START OF MODEL SIMULATION
-try:
-    while t<t_end:
-        try: # If the solvers don't converge, reduce the time step and try again.
-            print(t,dt_float)
-            
-            if counter%1==0:
-                fig.canvas.start_event_loop(0.00001)
-                fig.canvas.draw_idle()
 
-            # Solve the velocity-ice thickness equations
-            mass_solver.solve(bounds=(lower_bounds,upper_bounds))
+while t<t_end:
+    try: # If the solvers don't converge, reduce the time step and try again.
+        print(t,dt_float)
+        
+        if counter%1==0:
+            fig.canvas.start_event_loop(0.00001)
+            fig.canvas.draw_idle()
 
-            # Solve for water flux
-            df.solve(A_Qw == b_Qw,Qw)
+        # Solve the velocity-ice thickness equations
+        mass_solver.solve(bounds=(lower_bounds,upper_bounds))
 
-            # Solve the sediment equations (excluding diffusion)
-            sed_solver.solve(bounds=(lower_bounds_sed,upper_bounds_sed))
+        # Solve for water flux
+        df.solve(A_Qw == b_Qw,Qw)
 
-            # Update the previous thickness
-            ubar0.dat.data[:] = U.dat.data[0]
-            udef0.dat.data[:] = U.dat.data[1]
-            H0.dat.data[:] = U.dat.data[2]
+        # Solve the sediment equations (excluding diffusion)
+        sed_solver.solve(bounds=(lower_bounds_sed,upper_bounds_sed))
 
-            # Update previous bed elevation
-            B0.dat.data[:] = T.dat.data[0]
+        # Update the previous thickness
+        ubar0.dat.data[:] = U.dat.data[0]
+        udef0.dat.data[:] = U.dat.data[1]
+        H0.dat.data[:] = U.dat.data[2]
 
-            # Update previous sediment thickness
-            h_s0.dat.data[:] = T.dat.data[2]
+        # Update previous bed elevation
+        B0.dat.data[:] = T.dat.data[0]
 
-            # diffusion mechanics
-            # Set current sed thickness to solution from sed transport
-            h_sd0.dat.data[:] = h_s0.dat.data[:]
-            P.sub(0).assign(h_s0)
+        # Update previous sediment thickness
+        h_s0.dat.data[:] = T.dat.data[2]
 
-            # Solve diffusion equation
-            df.solve(R_d==0,P)
+        # diffusion mechanics
+        # Set current sed thickness to solution from sed transport
+        h_sd0.dat.data[:] = h_s0.dat.data[:]
+        P.sub(0).assign(h_s0)
 
-            # Update main sed thickness variables
-            h_s0.dat.data[:] = P.dat.data[0]
-            T.sub(2).assign(h_s0)
+        # Solve diffusion equation
+        df.solve(R_d==0,P)
 
-
-            # Increase time step if solvers complete successfully
-            dt_float = min(1.05*dt_float,dt_max)
-            dt.assign(dt_float)
-
-            ############ PERFORM PLOTTING ######################
+        # Update main sed thickness variables
+        h_s0.dat.data[:] = P.dat.data[0]
+        T.sub(2).assign(h_s0)
 
 
-            #KT start adding time 
-            time_text.set_text(f'Time: {t}') 
+        # Increase time step if solvers complete successfully
+        dt_float = min(1.05*dt_float,dt_max)
+        dt.assign(dt_float)
 
-            nan_idx = np.where(np.isnan(time_values))[0]  #this adds times to the time_values as it runs through the loop and replaces nans
-            if len(nan_idx) > 0:  
-                time_values[nan_idx[0]] = t      
-            #KT end adding time
-
-            #KT start gl plot
-            grounded = df.interpolate(floating,Q_dg)
-            g_ = grounded.dat.data[:]
-            ph_grounded.set_ydata(grounded.dat.data[:])
-            #KT end gl plot
-
-            #KT start velocity plot
-            us_ = df.project(u(0), Q_dg).vector().get_local()
-            ub_ = df.project(u(1), Q_dg).vector().get_local()
+        ############ PERFORM PLOTTING ######################
 
 
-            thk = H0.vector().get_local()
-            us_[thk<=(thklim+1e-2)] = np.nan
-            ub_[thk<=(thklim+1e-2)] = np.nan
-            #KT end velocity plot
+        #KT start adding time 
+        time_text.set_text(f'Time: {t}') 
 
-            base = df.interpolate(Base,Q_dg)
-            surf = df.interpolate(S,Q_dg)
-            sed = df.interpolate(B0 + h_s0,Q_dg) 
-            hs = df.interpolate(h_s0,Q_dg)
-            thick = df.interpolate(H0,Q_dg)
+        nan_idx = np.where(np.isnan(time_values))[0]  #this adds times to the time_values as it runs through the loop and replaces nans
+        if len(nan_idx) > 0:  
+            time_values[nan_idx[0]] = t      
+        #KT end adding time
 
-            ph_bed.set_ydata(B0.dat.data[:])
-            ph_base.set_ydata(base.dat.data[:])
-            ph_surf.set_ydata(surf.dat.data[:])
-            ph_sed.set_ydata(sed.dat.data[:])
+        #KT start gl plot
+        grounded = df.interpolate(floating,Q_dg)
+        g_ = grounded.dat.data[:]
+        ph_grounded.set_ydata(grounded.dat.data[:])
+        #KT end gl plot
 
-
-            ph_us.set_ydata(us_)
-            ph_ub.set_ydata(ub_)
-
-            #KT: added to avoid issues with NaNs in the thklim 
-            us_filtered = us_[np.isfinite(us_)]  # Keeps only finite values
-            if len(us_filtered) > 0:
-                ax[2].set_ylim(0, us_filtered.max() + 50) #KT: actively changing y axis
+        #KT start velocity plot
+        us_ = df.project(u(0), Q_dg).vector().get_local()
+        ub_ = df.project(u(1), Q_dg).vector().get_local()
 
 
-            ph_hs.set_ydata(hs.dat.data[:])
-            ax[3].set_ylim(0,hs.dat.data[:].max()+5) #KT: actively changing y axis
+        thk = H0.vector().get_local()
+        us_[thk<=(thklim+1e-2)] = np.nan
+        ub_[thk<=(thklim+1e-2)] = np.nan
+        #KT end velocity plot
 
-            ph_thick.set_ydata(thick.dat.data[:])
-            ax[4].set_ylim(0,thick.dat.data[:].max()+100)  #KT: actively changing y axis
+        #KT:
+    
+        base = df.interpolate(Base,Q_dg)
+        surf = df.interpolate(S,Q_dg)
+        sed = df.interpolate(B0 + h_s0,Q_dg) 
+        hs = df.interpolate(h_s0,Q_dg)
+        thick = df.interpolate(H0,Q_dg)
 
 
-            #KT: trying to record velocities over time
-            step_counter += 1
-            if step_counter % velocity_update_interval == 0:
-                time_values.append(t)
+        ph_bed.set_ydata(B0.dat.data[:])
+        ph_base.set_ydata(base.dat.data[:])
+        ph_surf.set_ydata(surf.dat.data[:])
+        ph_sed.set_ydata(sed.dat.data[:])
 
-                surface_velocity.append(np.nanmax(us_))  
-                basal_velocity.append(np.nanmax(ub_))
-                ph_surface.set_xdata(time_values)
-                ph_basal.set_xdata(time_values)
-                ph_surface.set_ydata(surface_velocity)
-                ph_basal.set_ydata(basal_velocity)
 
-                if t > ax_v.get_xlim()[1]:
-                    ax_v.set_xlim(0, t + 100)  # Extend time axis
+        ph_us.set_ydata(us_)
+        ph_ub.set_ydata(ub_)
 
-                if max(surface_velocity + basal_velocity) > ax_v.get_ylim()[1]:
-                    ax_v.set_ylim(0, max(surface_velocity + basal_velocity) + 50)  # Extend velocity axis
+        #KT: added to avoid issues with NaNs in the thklim 
+        us_filtered = us_[np.isfinite(us_)]  # Keeps only finite values
+        if len(us_filtered) > 0:
+            ax[2].set_ylim(0, us_filtered.max() + 50) #KT: actively changing y axis
 
-            # Redraw the figure
-            fig_v.canvas.draw()
-            plt.show()
-            #KT: end
 
-            #KT 
-            current_H = thick.dat.data[ind]
-            if current_H >= target_H:
-                accum_array.append([t, current_H])
-                print(f"Time: {t:.2f}, Thickness at cell {ind}: {current_H:.2f}")
-                # Update target for the next 5 m increment
-                target_H += 5
+        ph_hs.set_ydata(hs.dat.data[:])
+        ax[3].set_ylim(0,hs.dat.data[:].max()+5) #KT: actively changing y axis
 
-            t+=dt_float
-            counter+=1
+        ph_thick.set_ydata(thick.dat.data[:])
+        ax[4].set_ylim(0,thick.dat.data[:].max()+100)  #KT: actively changing y axis
 
-        except df.ConvergenceError:
 
-            # If the solvers don't converge, reset variables to previous time step's succesful values and try again.  
-            U.sub(0).assign(1e-10)
-            U.sub(1).assign(1e-10)
-            U.sub(2).assign(H0)
+        #KT: trying to record velocities over time
+        step_counter += 1
+        if step_counter % velocity_update_interval == 0:
+            time_values.append(t)
 
-            T.sub(0).assign(B0)
-            T.sub(1).assign(df.Constant(0.0))
-            T.sub(2).assign(h_s0)
-            T.sub(3).assign(h_eff0)
+            surface_velocity.append(np.nanmax(us_))  
+            basal_velocity.append(np.nanmax(ub_))
+            ph_surface.set_xdata(time_values)
+            ph_basal.set_xdata(time_values)
+            ph_surface.set_ydata(surface_velocity)
+            ph_basal.set_ydata(basal_velocity)
 
-            dt_float/=2.
-            dt.assign(dt_float)
-            print('convergence failed, reducing time step and trying again')
+            if t > ax_v.get_xlim()[1]:
+                ax_v.set_xlim(0, t + 100)  # Extend time axis
 
-        if (dt_float < 1e-10): # Things have really gone off the rails and the simulation is shutting down
-            print("model stalling, time step approaching zero")
-            break
+            if max(surface_velocity + basal_velocity) > ax_v.get_ylim()[1]:
+                ax_v.set_ylim(0, max(surface_velocity + basal_velocity) + 50)  # Extend velocity axis
 
-except KeyboardInterrupt:
-    # Handle user interruption (Ctrl+C)
-    print("Simulation interrupted! Saving data...") 
+        # Redraw the figure
+        fig_v.canvas.draw()
+        plt.show()
+        #KT: end
 
-finally:
-    # Save the data array even if interrupted or completed
-    savdir = os.path.expanduser("~/Desktop/Leconte/Model/Trial_Runs")
-    os.makedirs(savdir, exist_ok=True)
-    save_path = os.path.join(savdir, "accumdata.csv")
-    thickness_data_array = np.array(accum_array)
-    np.savetxt(save_path, thickness_data_array, delimiter=",", header="Time,Thickness", comments="")
-    print("Data saved to 'thickness_data.csv'")
+        #KT: Load Dictionaries with values 
+
+
+        #KT:end load dictionaries
+
+        t+=dt_float
+        counter+=1
+
+    except df.ConvergenceError:
+
+        # If the solvers don't converge, reset variables to previous time step's succesful values and try again.  
+        U.sub(0).assign(1e-10)
+        U.sub(1).assign(1e-10)
+        U.sub(2).assign(H0)
+
+        T.sub(0).assign(B0)
+        T.sub(1).assign(df.Constant(0.0))
+        T.sub(2).assign(h_s0)
+        T.sub(3).assign(h_eff0)
+
+        dt_float/=2.
+        dt.assign(dt_float)
+        print('convergence failed, reducing time step and trying again')
+
+    if (dt_float < 1e-10): # Things have really gone off the rails and the simulation is shutting down
+        print("model stalling, time step approaching zero")
+        break
+
+    # except KeyboardInterrupt:
+    #     # Handle user interruption (Ctrl+C)
+    #     print("Simulation interrupted! Saving data...") 
