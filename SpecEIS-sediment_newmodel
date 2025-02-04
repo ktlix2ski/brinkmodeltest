@@ -32,21 +32,21 @@ def full_quad(order):
 sigmoid = lambda z: 1./(1+df.exp(-z))
 
 #L = 45000.                  # OG: Characteristic domain length
-L = 55000                       #KT: Leconte L
+L = 55000                    #KT: Leconte L
 spy = 60**2*24*365          
 thklim = 1.0                # Minimum Ice Thickness
 
 zmin = -300.0               # Minimum elevation
-zmax = 2200.0               # Maximum elevation from OG
-#zmax = 2800.0               # KT: Maximum elevation from RGI at Leconte
+#zmax = 2200.0               # Maximum elevation from OG
+zmax = 2000.0               # KT: Maximum elevation from RGI at Leconte
 
 
 amin = df.Constant(-8.0)       # Minimum smb
-amax = df.Constant(5.0)        # Maximum smb
+amax = df.Constant(6.0)        # Maximum smb
 
 c = 2.0                     # Coefficient of exponential decay
 
-amp = 400.0                   # Amplitude of sinusoidal topography 
+amp = 50.0                   # Amplitude of sinusoidal topography 
 
 rho = rho_i = 917.                  # Ice density
 rho_w = 1029.0              # Seawater density
@@ -95,8 +95,7 @@ dt = df.Constant(dt_float)
 
 # Define a rectangular mesh
 nx = 300
-#mesh = df.IntervalMesh(nx,0,2*L)       #OG uses length of domain as 2*L
-mesh = df.IntervalMesh(nx,-L,L)             #KT: changed to how old model wrote it
+mesh = df.IntervalMesh(nx,0,2*L)       #OG uses length of domain as 2*L
 
 Q_dg = df.FunctionSpace(mesh,"DG",0)
 H = df.Function(Q_dg)
@@ -105,7 +104,7 @@ x, = df.SpatialCoordinate(mesh)
 
 surface_expression = (zmax - zmin)*df.exp(-3*x/L)  + zmin - amp*df.sin(4*np.pi*x/L) + thklim
 #bed_expression = (zmax - zmin)*df.exp(-3*x/L)  + zmin - amp*df.sin(4*np.pi*x/L)
-bed_expression = (zmax - zmin)*df.exp(-2*x/L)  + zmin - amp*df.sin(4*np.pi*x/40000)  #KT: trying other bed expressions
+bed_expression = (zmax - zmin)*df.exp(-2.5*x/L)  + zmin - amp*df.sin(4*np.pi*x/40000)  #KT: trying other bed expressions
 beta_expression = df.Constant(50.0)         #KT interp: basal friction coefficient?
 
 
@@ -231,8 +230,8 @@ beta2 = df.interpolate(beta_expression,Q_cg)  #KT: beta_expression = 50
 
 # Surface mass balance
 climate_factor = df.Constant(1)      
-adot = climate_factor*(8 - 16/(4*L/3.)*x)  #this was hardcoded in new model
-#adot = climate_factor*(amin + (amax-amin)/(1-df.exp(-c))*(1.-df.exp(-c*((S/2000)))))
+#adot = climate_factor*(8 - 16/(4*L/3.)*x)  #this was hardcoded in new model
+adot = climate_factor*(amin + (amax-amin)/(1-df.exp(-c))*(1.-df.exp(-c*((S/2000)))))
 
 
 ########################################################
@@ -617,7 +616,7 @@ while t<t_end:
 
 
         #KT start adding time 
-        time_text.set_text(f'Time: {t}') 
+        time_text.set_text(f'Time: {t:.2f} years') 
 
         nan_idx = np.where(np.isnan(time_values))[0]  #this adds times to the time_values as it runs through the loop and replaces nans
         if len(nan_idx) > 0:  
