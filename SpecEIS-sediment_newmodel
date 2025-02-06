@@ -42,7 +42,7 @@ zmax = 2000.0               # KT: Maximum elevation from RGI at Leconte
 
 
 amin = df.Constant(-8.0)       # Minimum smb
-amax = df.Constant(6.0)        # Maximum smb
+amax = df.Constant(7.0)        # Maximum smb
 
 c = 2.0                     # Coefficient of exponential decay
 
@@ -481,65 +481,76 @@ plt.ion()
 fig, ax = plt.subplots(nrows=5,sharex=True,figsize=(10,12))
 fig_v, ax_v = plt.subplots(figsize=(10, 12))
 
-#KT: storing velocity data plots
-ph_surface, = ax_v.plot([], [], 'r-', label="Surface Velocity (max)")
-ph_basal, = ax_v.plot([], [], 'g:', label="Basal Velocity (max)")
-ax_v.set_xlim(0, 100)  
-ax_v.set_ylim(0, 100)    
-ax_v.set_xlabel("Time")
-ax_v.set_ylabel("Velocity")
-ax_v.set_title("Velocity Evolution Over Time")
-ax_v.legend(loc = 'center right', fontsize = 10)
-
 #Plotting Glacier Profile
 xx = df.interpolate(x,Q_dg).dat.data[:]
 
 ph_bed, = ax[0].plot(xx,B0.dat.data[:],'k-')
+
 base = df.interpolate(Base,Q_dg)
 ph_base, = ax[0].plot(xx,base.dat.data[:],'b-')
+
 surf = df.interpolate(S,Q_dg)
 ph_surf, = ax[0].plot(xx,surf.dat.data[:],'c-')
+
 sed = df.interpolate(B0 + h_s0,Q_dg)
 ph_sed, = ax[0].plot(xx,sed.dat.data[:],'g-')
+
 ax[0].plot(xx,np.zeros_like(xx),'b:',lw=0.5)
 ax[0].set_ylabel('Elevation (m)')
 ax[0].legend(loc = 'center right', fontsize = 10)
 
-
-#KT: Start plotting OG plots - grounded, velocities, sed thickness
+#KT: Grounding Line Plot
 ph_grounded, = ax[1].plot(xx, np.zeros_like(xx), 'k-')
 ax[1].set_ylim(-0.05, 1.05)
-ax[1].set_ylabel('Grounded')
+ax[1].set_ylabel('Grounded(0) VS Floating(1)')
 
 thk = np.zeros(300)
 
+#KT: Velocity vs Distance Plot
 ph_us, = ax[2].plot(xx,np.zeros_like(xx),'r-',lw=1.5, label = 'Surface Velocity')
 ph_ub, = ax[2].plot(xx,np.zeros_like(xx),'g:',lw=1.5, label = 'Basal Velocity')
 ax[2].set_ylim(0,500)
-ax[2].set_ylabel('Speed')
+ax[2].set_ylabel('Speed (m/yr)')
 
-
+#Kt: Sediment Thickness Plot
 hs = df.interpolate(h_s0, Q_dg)
 ph_hs, = ax[3].plot(xx,np.zeros_like(xx),'k-',lw=1.0)
-ax[3].set_ylabel('Sediment Thickness')
-
+ax[3].set_ylabel('Sediment Thickness (m)')
 ax[2].legend(loc = 'center right', fontsize = 10)
+ax[4].set_xlabel('Distance (m)')
 
-ax[4].set_xlabel('Distance')
-#KT: end OG plots
-
-#KT: thickness plot
+#KT: Ice Thickness Plot
 thick = df.interpolate(H0,Q_dg)
 ph_thick, = ax[4].plot(xx,np.zeros_like(xx), 'b-')
 ax[4].set_ylim(0,500)
-ax[4].set_ylabel('Ice Thickness')
-#KT: end thickness plots
+ax[4].set_ylabel('Ice Thickness (m)')
 
+#KT: Velocity over time plot initialization
+ph_surface, = ax_v.plot([], [], 'r-', label="Surface Velocity (max)")
+ph_basal, = ax_v.plot([], [], 'g:', label="Basal Velocity (max)")
+ax_v.set_xlim(0, 100)  
+ax_v.set_ylim(0, 100)    
+ax_v.set_xlabel("Time (years)")
+ax_v.set_ylabel("Velocity (m/yr)")
+ax_v.set_title("Velocity Evolution Over Time")
+ax_v.legend(loc = 'center right', fontsize = 10)
 
-#KT: first attempt at storing values over time 
+#KT: Storing values over time 
 time_values = []  
 surface_velocity = []  
 basal_velocity = []
+
+#KT: Initializing Dictionaries - Keys = timesteps, Values = arrays of size 300 containing mesh values
+time_dict = {}      #Dictionary to store step count and associated timestep
+H_dict = {}         # Dictionary of ice thicknesses
+us_dict = {}        # Dictionary of surface velocities
+ub_dict = {}        # Dictionary of basal velocities
+Hs_dict = {}        # Dictionary of sediment thickness
+GL_dict = {}        # Dictionary of grounding line location
+Qs_dict = {}        # Dictionary of fluvial sediment flux
+
+#KT: Initializing HDF5 file to store state variables that can be used to start model run
+checkpoint = df.CheckpointFile("init_modelrun.h5",'w')
 
 ##############################################################################
 ############################  Run Model  #####################################
@@ -560,10 +571,6 @@ step_counter = 0
 
 # Maximum time step!!  Increase with caution.
 dt_max = 5.0   #OG time step
-
-#KT: Initializing Dictionaries
-H_dict = {}
-
 
 
 # LOOP OVER TIME: START OF MODEL SIMULATION
@@ -592,8 +599,9 @@ while t<t_end:
         # Update previous bed elevation
         B0.dat.data[:] = T.dat.data[0]
 
-        # Update previous sediment thickness
+        # Update previous sediment thickness, KT added updating fluvial sed flux
         h_s0.dat.data[:] = T.dat.data[2]
+        Qs0.dat.data[:] = T.dat.data[1]
 
         # diffusion mechanics
         # Set current sed thickness to solution from sed transport
@@ -607,7 +615,6 @@ while t<t_end:
         h_s0.dat.data[:] = P.dat.data[0]
         T.sub(2).assign(h_s0)
 
-
         # Increase time step if solvers complete successfully
         dt_float = min(1.05*dt_float,dt_max)
         dt.assign(dt_float)
@@ -615,88 +622,117 @@ while t<t_end:
         ############ PERFORM PLOTTING ######################
 
 
-        #KT start adding time 
+        #KT: Time text for plots
         time_text.set_text(f'Time: {t:.2f} years') 
 
         nan_idx = np.where(np.isnan(time_values))[0]  #this adds times to the time_values as it runs through the loop and replaces nans
         if len(nan_idx) > 0:  
             time_values[nan_idx[0]] = t      
-        #KT end adding time
 
-        #KT start gl plot
+        #KT: Grounding Line Plot
         grounded = df.interpolate(floating,Q_dg)
         g_ = grounded.dat.data[:]
-        ph_grounded.set_ydata(grounded.dat.data[:])
-        #KT end gl plot
+        ph_grounded.set_ydata(g_)
 
-        #KT start velocity plot
+        #KT: Surface & Basal Velocity Plot
         us_ = df.project(u(0), Q_dg).vector().get_local()
         ub_ = df.project(u(1), Q_dg).vector().get_local()
-
 
         thk = H0.vector().get_local()
         us_[thk<=(thklim+1e-2)] = np.nan
         ub_[thk<=(thklim+1e-2)] = np.nan
-        #KT end velocity plot
-
-        #KT:
     
+        #Updating Data on Mesh
         base = df.interpolate(Base,Q_dg)
         surf = df.interpolate(S,Q_dg)
         sed = df.interpolate(B0 + h_s0,Q_dg) 
         hs = df.interpolate(h_s0,Q_dg)
+        Qs = df.interpolate(Qs0, Q_dg)
         thick = df.interpolate(H0,Q_dg)
 
-
+        #Updating Data on Plot
         ph_bed.set_ydata(B0.dat.data[:])
         ph_base.set_ydata(base.dat.data[:])
         ph_surf.set_ydata(surf.dat.data[:])
         ph_sed.set_ydata(sed.dat.data[:])
 
-
         ph_us.set_ydata(us_)
         ph_ub.set_ydata(ub_)
 
         #KT: added to avoid issues with NaNs in the thklim 
-        us_filtered = us_[np.isfinite(us_)]  # Keeps only finite values
+        us_filtered = us_[np.isfinite(us_)]  
         if len(us_filtered) > 0:
             ax[2].set_ylim(0, us_filtered.max() + 50) #KT: actively changing y axis
 
-
+        #KT: Updating Sediment Thickness
         ph_hs.set_ydata(hs.dat.data[:])
         ax[3].set_ylim(0,hs.dat.data[:].max()+5) #KT: actively changing y axis
 
+        #KT: Updating Ice Thickness
         ph_thick.set_ydata(thick.dat.data[:])
         ax[4].set_ylim(0,thick.dat.data[:].max()+100)  #KT: actively changing y axis
 
+        #KT: Velocities over time, extracted from 50 indices behind terminus
+        notNAN = np.where(np.isfinite(us_))[0]
 
-        #KT: trying to record velocities over time
-        step_counter += 1
-        if step_counter % velocity_update_interval == 0:
+        if len(notNAN) > 0:
+            terminus = notNAN[-1]
+        else:
+            terminus = None
+
+        if terminus is not None and terminus >= 50:
             time_values.append(t)
+            term_usvel = us_[terminus - 50]  
+            term_ubvel = ub_[terminus - 50]
+        else:
+            term_usvel = None
+            term_ubvel = None
 
-            surface_velocity.append(np.nanmax(us_))  
-            basal_velocity.append(np.nanmax(ub_))
-            ph_surface.set_xdata(time_values)
-            ph_basal.set_xdata(time_values)
-            ph_surface.set_ydata(surface_velocity)
-            ph_basal.set_ydata(basal_velocity)
+        if np.isnan(term_usvel):
+            term_usvel = 0
+        if np.isnan(term_ubvel):
+            term_ubvel = 0
 
-            if t > ax_v.get_xlim()[1]:
-                ax_v.set_xlim(0, t + 100)  # Extend time axis
+        surface_velocity.append(term_usvel)  
+        basal_velocity.append(term_ubvel)
+        ph_surface.set_xdata(time_values)
+        ph_basal.set_xdata(time_values)
+        ph_surface.set_ydata(surface_velocity)
+        ph_basal.set_ydata(basal_velocity)
 
-            if max(surface_velocity + basal_velocity) > ax_v.get_ylim()[1]:
-                ax_v.set_ylim(0, max(surface_velocity + basal_velocity) + 50)  # Extend velocity axis
+        if t > ax_v.get_xlim()[1]:
+            ax_v.set_xlim(0, t + 100)  
+
+        if max(surface_velocity + basal_velocity) > ax_v.get_ylim()[1]:
+            ax_v.set_ylim(0, max(surface_velocity + basal_velocity) + 50)  # Extend velocity axis
 
         # Redraw the figure
         fig_v.canvas.draw()
         plt.show()
-        #KT: end
 
         #KT: Load Dictionaries with values 
+        time_dict[counter] = t
+        H_dict[t] = thick.dat.data[:]         
+        us_dict[t] = us_           
+        ub_dict[t] = ub_        
+        Hs_dict[t] = sed.dat.data[:]        
+        GL_dict[t] = g_             
+        Qs_dict[t] = Qs.dat.data[:]        
 
+        #KT: Storing to HDF5 file 
+        if counter % 1 == 0:
+            if counter == 0:
+                checkpoint.save_mesh(mesh)      #Saving the mesh
+            
+            # Saving Function spaces
+            checkpoint._save_function_space(V_g)
+            checkpoint._save_function_space(V_sed)
+            checkpoint._save_function_space(V_dif)
 
-        #KT:end load dictionaries
+            # Saving Functions
+            checkpoint.save_function(U)
+            checkpoint.save_function(T)     
+            checkpoint.save_function(P)
 
         t+=dt_float
         counter+=1
