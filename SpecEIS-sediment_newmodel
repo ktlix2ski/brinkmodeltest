@@ -42,7 +42,7 @@ zmax = 2000.0               # KT: Maximum elevation from RGI at Leconte
 
 
 amin = df.Constant(-8.0)       # Minimum smb
-amax = df.Constant(7.0)        # Maximum smb
+amax = df.Constant(5.0)        # Maximum smb
 
 c = 2.0                     # Coefficient of exponential decay
 
@@ -231,7 +231,10 @@ beta2 = df.interpolate(beta_expression,Q_cg)  #KT: beta_expression = 50
 # Surface mass balance
 climate_factor = df.Constant(1)      
 #adot = climate_factor*(8 - 16/(4*L/3.)*x)  #this was hardcoded in new model
-adot = climate_factor*(amin + (amax-amin)/(1-df.exp(-c))*(1.-df.exp(-c*((S/2000)))))
+#adot = climate_factor*(amin + (amax-amin)/(1-df.exp(-c))*(1.-df.exp(-c*((S/2000)))))
+adot = climate_factor*(amin + (amax-amin)/(1-df.exp(-c))*(1.-df.exp(-c*((S/(zmax-zmin)))))) #changng 2000 to be max elev - min elev like in paper
+
+
 
 
 ########################################################
@@ -681,18 +684,18 @@ while t<t_end:
             terminus = None
 
         if terminus is not None and terminus >= 50:
-            time_values.append(t)
             term_usvel = us_[terminus - 50]  
             term_ubvel = ub_[terminus - 50]
         else:
-            term_usvel = None
-            term_ubvel = None
+            term_usvel = 0
+            term_ubvel = 0
 
         if np.isnan(term_usvel):
             term_usvel = 0
         if np.isnan(term_ubvel):
             term_ubvel = 0
 
+        time_values.append(t)
         surface_velocity.append(term_usvel)  
         basal_velocity.append(term_ubvel)
         ph_surface.set_xdata(time_values)
@@ -733,7 +736,6 @@ while t<t_end:
             checkpoint.save_function(U)
             checkpoint.save_function(T)     
             checkpoint.save_function(P)
-
         t+=dt_float
         counter+=1
 
