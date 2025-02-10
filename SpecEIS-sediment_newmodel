@@ -5,8 +5,15 @@ import firedrake as df
 import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
+from matplotlib.animation import FuncAnimation
 import numpy as np
 import ufl
+import signal
+from datetime import datetime
+import json
+from firedrake import *
+import sys
 
 # HELPER FUNCTIONS
 def Max(a, b): return (a+b+abs(a-b))/df.Constant(2)
@@ -552,25 +559,63 @@ Hs_dict = {}        # Dictionary of sediment thickness
 GL_dict = {}        # Dictionary of grounding line location
 Qs_dict = {}        # Dictionary of fluvial sediment flux
 
-#KT: Initializing HDF5 file to store state variables that can be used to start model run
-checkpoint = df.CheckpointFile("init_modelrun.h5",'w')
+#KT: Grabbing timestamp at start of simulation, should match with simulation run time
+start_time = datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
+
+#KT: Array to store animation frames to be compiled into simulation movie
+frames = []
+save_int = 1000
+
+
+
+######### KT: OUTPUT DIRECTORIES & FILES FOR STORING SIMULATION DATA ################################
+
+# ANIMATION SIMULATION subfolders based on how simulation ends
+anim_crash = "/home/kayatroyer/Repositories/brinkmodeltest/Output/Simulation_Animations/Crashes"
+anim_rupt = "/home/kayatroyer/Repositories/brinkmodeltest/Output/Simulation_Animations/Interrupts"
+full_anim = "/home/kayatroyer/Repositories/brinkmodeltest/Output/Simulation_Animations/SuccessfulRuns"
+
+success_filename = os.path.join(full_anim,f"FullModelRun_{start_time}.mp4")
+crash_filename = os.path.join(anim_crash,f"CrashedModelRun_{start_time}.mp4")
+interrupt_filename = os.path.join(anim_rupt,f"InterruptedModelRun_{start_time}.mp4")
+
+state_folder = "/home/kayatroyer/Repositories/brinkmodeltest/Output/State_Variables" 
+dicts_folder = "/home/kayatroyer/Repositories/brinkmodeltest/Output/Variable_Dictionaries"
+
+#KT: Making output directories and files
+indiv_run_name = f"Run_{start_time}"
+indiv_run_path = os.path.join(state_folder,indiv_run_name)
+os.makedirs(indiv_run_path, exist_ok=True)
+
+#KT: initializing checkpoint files in appropriate directories
+half_checkpoint = os.path.join(state_folder, "checkpoint_halfway.h5")
+final_checkpoint = os.path.join(state_folder, "checkpoint_final.h5")
+
+#KT: In event of interrupt, simulation movie saves
+def interrupt(signal, frame):
+    print("Interrupt signal received. Saving animation before shutdown...")
+    ani_rupt = animation.ArtistAnimation(fig, frames, interval=100, blit=True)
+    ani_rupt.save(interrupt_filename, writer="ffmpeg", fps=10, dpi=150)  # Save the crashed animation
+    print(f"Interrupted, Animation saved to: {interrupt}")
+    print("MODEL INTERRUPTED, NOT SAVING FINAL STATE VARIABLES")
+    sys.exit(0)
+signal.signal(signal.SIGTERM, interrupt)  # Catches `kill` command
+signal.signal(signal.SIGINT, interrupt)   # Catches `Ctrl+C`
 
 ##############################################################################
 ############################  Run Model  #####################################
 ##############################################################################
+#KT: Time counter display for model run
+time_text = ax[0].text(0.70,0.90,'', transform=ax[0].transAxes, fontsize = 12) #i added this
+
+#KT: stores time values every 10 time steps
+#velocity_interval = 10  # Update every 10 timesteps
 
 # Time interval
 t = 0.0
 t_end = 30000
 
 counter = 0
-
-#KT: Time counter display for model run
-time_text = ax[0].text(0.70,0.90,'', transform=ax[0].transAxes, fontsize = 12) #i added this
-
-#KT: stores time values every 10 time steps
-velocity_update_interval = 10  # Update every 10 timesteps
-step_counter = 0
 
 # Maximum time step!!  Increase with caution.
 dt_max = 5.0   #OG time step
@@ -713,6 +758,11 @@ while t<t_end:
         fig_v.canvas.draw()
         plt.show()
 
+        ##################### DONE PLOTTING, START STORING VARIABLES #####################
+
+        #KT: Update animation frames
+        #frames.append(update_anim())
+
         #KT: Load Dictionaries with values 
         time_dict[counter] = t
         H_dict[t] = thick.dat.data[:]         
@@ -722,20 +772,23 @@ while t<t_end:
         GL_dict[t] = g_             
         Qs_dict[t] = Qs.dat.data[:]        
 
+        
         #KT: Storing to HDF5 file 
-        if counter % 1 == 0:
+        half = t_end//2
+
+        if counter == 3:
             if counter == 0:
-                checkpoint.save_mesh(mesh)      #Saving the mesh
-            
-            # Saving Function spaces
-            checkpoint._save_function_space(V_g)
-            checkpoint._save_function_space(V_sed)
-            checkpoint._save_function_space(V_dif)
+                half_checkpoint.save_mesh(mesh,name = 'mesh_State')      #Saving the mesh at start
+
+            with open(os.path.join(indiv_run_path, 'time_dict.json'), 'w') as f:
+                json.dump(time_dict, f)
 
             # Saving Functions
-            checkpoint.save_function(U)
-            checkpoint.save_function(T)     
-            checkpoint.save_function(P)
+            with CheckpointFile(half_checkpoint, "w") as half_checkpoint:
+                half_checkpoint.save_function(U, name = 'U_State')
+                half_checkpoint.save_function(T, name = 'T_State')
+                half_checkpoint.save_function(P, name = 'P_State')
+
         t+=dt_float
         counter+=1
 
@@ -755,10 +808,40 @@ while t<t_end:
         dt.assign(dt_float)
         print('convergence failed, reducing time step and trying again')
 
-    if (dt_float < 1e-10): # Things have really gone off the rails and the simulation is shutting down
-        print("model stalling, time step approaching zero")
+#KT: adding these in case of intterupt 
+    except KeyboardInterrupt:
+        interrupt(signal.SIGINT, None)
+        break
+    except Exception as e:
+        print(f"Unexpected Error: {e}")
+        interrupt(signal.SIGINT, None)
         break
 
-    # except KeyboardInterrupt:
-    #     # Handle user interruption (Ctrl+C)
-    #     print("Simulation interrupted! Saving data...") 
+    if (dt_float < 1e-10): # Things have really gone off the rails and the simulation is shutting down
+        print("model stalling, time step approaching zero. Saving animation before shutdown...")
+        
+        ani_break = animation.ArtistAnimation(fig, frames, interval=100, blit=True) #KT: added
+        ani_break.save(crash_filename, writer="ffmpeg", fps=10, dpi=150)    #KT: added
+
+        print(f"Crashed Animation saved to: {crash_filename}")  #KT: added
+        print("MODEL BREAKING NOT SAVING FINAL STATE VARIABLES")
+        break
+
+#KT: added this to do a final save of model stuff
+if t >= t_end-1:
+    if not ani._is_saving:  # Ensure animation isn't already being written
+        ani = animation.ArtistAnimation(fig, frames, interval=100, blit=True)
+        ani.save(success_filename, writer="ffmpeg", fps=10, dpi=150)
+        print(f"Successful Model Run Animation saved to: {success_filename}")
+
+    print("Simulation completed successfully. Saving final state variables... ")
+
+    with open(os.path.join(indiv_run_path, 'time_dict_final.json'), 'w') as f:
+                json.dump(time_dict, f)
+        
+    with CheckpointFile(final_checkpoint, "w") as final_checkpoint:
+        final_checkpoint.save_mesh(mesh, name ='mesh_State_final')
+        final_checkpoint.save_function(U, name = 'U_State_final')
+        final_checkpoint.save_function(T, name = 'T_State_final')
+        final_checkpoint.save_function(P, name = 'P_State_final')
+            
