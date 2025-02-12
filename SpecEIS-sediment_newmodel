@@ -14,6 +14,7 @@ from datetime import datetime
 import json
 from firedrake import *
 import sys
+import pickle
 
 # HELPER FUNCTIONS
 def Max(a, b): return (a+b+abs(a-b))/df.Constant(2)
@@ -551,7 +552,11 @@ surface_velocity = []
 basal_velocity = []
 
 #KT: Initializing Dictionaries - Keys = timesteps, Values = arrays of size 300 containing mesh values
-time_dict = {}      #Dictionary to store step count and associated timestep
+time_dict = {}      # Dictionary to store step count and associated timestep
+bed_dict = {}       # Dictionary of bed geometry (for animation)
+base_dict = {}      # Dictionary of base geometry (for animation)
+surf_dict = {}      # Dictionary of surface geometry (for animation)
+sed_dict = {}       # Dictionary of sediment geometry (for animation)
 H_dict = {}         # Dictionary of ice thicknesses
 us_dict = {}        # Dictionary of surface velocities
 ub_dict = {}        # Dictionary of basal velocities
@@ -562,10 +567,25 @@ Qs_dict = {}        # Dictionary of fluvial sediment flux
 #KT: Grabbing timestamp at start of simulation, should match with simulation run time
 start_time = datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
 
-#KT: Array to store animation frames to be compiled into simulation movie
+#KT: Function to update animation frames to be compiled into simulation movie
 frames = []
-save_int = 1000
+def update_anim(frame):
+    "updates the plots for FuncAnimation"
+    t = time_dict[frame]
+    time_text.set_text(f'Time: {t:.2f} years')
 
+    ph_bed.set_ydata(bed_dict[t])
+    ph_base.set_ydata(base_dict[t])
+    ph_surf.set_ydata(surf_dict[t])
+    ph_sed.set_ydata(sed_dict[t])
+
+    ph_grounded.set_ydata(GL_dict[t])
+    ph_us.set_ydata(us_dict[t])
+    ph_ub.set_ydata(ub_dict[t])
+    ph_thick.set_ydata(H_dict[t])
+    ph_hs.set_ydata(Hs_dict[t])
+
+    return [time_text, ph_bed, ph_base, ph_surf, ph_sed, ph_grounded, ph_ub, ph_us, ph_thick, ph_hs]
 
 
 ######### KT: OUTPUT DIRECTORIES & FILES FOR STORING SIMULATION DATA ################################
@@ -579,7 +599,10 @@ success_filename = os.path.join(full_anim,f"FullModelRun_{start_time}.mp4")
 crash_filename = os.path.join(anim_crash,f"CrashedModelRun_{start_time}.mp4")
 interrupt_filename = os.path.join(anim_rupt,f"InterruptedModelRun_{start_time}.mp4")
 
+#KT: State Variable Folder 
 state_folder = "/home/kayatroyer/Repositories/brinkmodeltest/Output/State_Variables" 
+
+#KT: Dictionary Folder
 dicts_folder = "/home/kayatroyer/Repositories/brinkmodeltest/Output/Variable_Dictionaries"
 
 #KT: Making output directories and files
@@ -594,7 +617,7 @@ final_checkpoint = os.path.join(state_folder, "checkpoint_final.h5")
 #KT: In event of interrupt, simulation movie saves
 def interrupt(signal, frame):
     print("Interrupt signal received. Saving animation before shutdown...")
-    ani_rupt = animation.ArtistAnimation(fig, frames, interval=100, blit=True)
+    ani_rupt = animation.FuncAnimation(fig, update_anim, frames = len(frames), interval=100, blit=True)
     ani_rupt.save(interrupt_filename, writer="ffmpeg", fps=10, dpi=150)  # Save the crashed animation
     print(f"Interrupted, Animation saved to: {interrupt}")
     print("MODEL INTERRUPTED, NOT SAVING FINAL STATE VARIABLES")
@@ -761,10 +784,14 @@ while t<t_end:
         ##################### DONE PLOTTING, START STORING VARIABLES #####################
 
         #KT: Update animation frames
-        #frames.append(update_anim())
+        frames.append(fig)
 
         #KT: Load Dictionaries with values 
         time_dict[counter] = t
+        bed_dict[t] = B0.dat.data[:]
+        base_dict[t] = base.dat.data[:]
+        surf_dict[t] = surf.dat.data[:]
+        sed_dict[t] = sed.dat.data[:]
         H_dict[t] = thick.dat.data[:]         
         us_dict[t] = us_           
         ub_dict[t] = ub_        
@@ -772,6 +799,24 @@ while t<t_end:
         GL_dict[t] = g_             
         Qs_dict[t] = Qs.dat.data[:]        
 
+        #KT: Loading main data dictionary with dictionaries
+        DATA_dict = {
+            'time_dict': time_dict,
+            'bed_dict': bed_dict,
+            'base_dict': base_dict,
+            'surf_dict': surf_dict,
+            'sed_dict': sed_dict,
+            'H_dict': H_dict,
+            'us_dict': us_dict,
+            'ub_dict': ub_dict,
+            'Hs_dict': Hs_dict,
+            'GL_dict': GL_dict,
+            'Qs_dict': Qs_dict
+        }
+         #KT: Pickling Data Dictionary
+        dict_filename = os.path.join(dicts_folder, f"DATA_Dictionary_{start_time}.pkl")
+        with open(dict_filename, 'wb') as f:
+            pickle.dump(DATA_dict,f)
         
         #KT: Storing to HDF5 file 
         half = t_end//2
@@ -820,7 +865,7 @@ while t<t_end:
     if (dt_float < 1e-10): # Things have really gone off the rails and the simulation is shutting down
         print("model stalling, time step approaching zero. Saving animation before shutdown...")
         
-        ani_break = animation.ArtistAnimation(fig, frames, interval=100, blit=True) #KT: added
+        ani_break = animation.FuncAnimation(fig, update_anim, frames = frames, interval=100, blit=True) #KT: added
         ani_break.save(crash_filename, writer="ffmpeg", fps=10, dpi=150)    #KT: added
 
         print(f"Crashed Animation saved to: {crash_filename}")  #KT: added
@@ -830,8 +875,9 @@ while t<t_end:
 #KT: added this to do a final save of model stuff
 if t >= t_end-1:
     if not ani._is_saving:  # Ensure animation isn't already being written
-        ani = animation.ArtistAnimation(fig, frames, interval=100, blit=True)
+        ani = animation.FuncAnimation(fig, update_anim, frames = frames, interval=100, blit=True)
         ani.save(success_filename, writer="ffmpeg", fps=10, dpi=150)
+
         print(f"Successful Model Run Animation saved to: {success_filename}")
 
     print("Simulation completed successfully. Saving final state variables... ")
