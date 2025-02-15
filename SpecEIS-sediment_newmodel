@@ -553,6 +553,7 @@ basal_velocity = []
 
 #KT: Initializing Dictionaries - Keys = timesteps, Values = arrays of size 300 containing mesh values
 time_dict = {}      # Dictionary to store step count and associated timestep
+counter_dict ={}
 bed_dict = {}       # Dictionary of bed geometry (for animation)
 base_dict = {}      # Dictionary of base geometry (for animation)
 surf_dict = {}      # Dictionary of surface geometry (for animation)
@@ -611,8 +612,8 @@ indiv_run_path = os.path.join(state_folder,indiv_run_name)
 os.makedirs(indiv_run_path, exist_ok=True)
 
 #KT: initializing checkpoint files in appropriate directories
-half_checkpoint = os.path.join(state_folder, "checkpoint_halfway.h5")
-final_checkpoint = os.path.join(state_folder, "checkpoint_final.h5")
+half_checkpoint = os.path.join(indiv_run_path, "checkpoint_halfway.h5")
+final_checkpoint = os.path.join(indiv_run_path, "checkpoint_final.h5")
 
 #KT: In event of interrupt, simulation movie saves
 def interrupt(signal, frame):
@@ -788,6 +789,7 @@ while t<t_end:
 
         #KT: Load Dictionaries with values 
         time_dict[counter] = t
+        counter_dict[t] = counter 
         bed_dict[t] = B0.dat.data[:]
         base_dict[t] = base.dat.data[:]
         surf_dict[t] = surf.dat.data[:]
@@ -801,7 +803,7 @@ while t<t_end:
 
         #KT: Loading main data dictionary with dictionaries
         DATA_dict = {
-            'time_dict': time_dict,
+            'counter_dict': counter_dict,
             'bed_dict': bed_dict,
             'base_dict': base_dict,
             'surf_dict': surf_dict,
@@ -874,8 +876,8 @@ while t<t_end:
 
 #KT: added this to do a final save of model stuff
 if t >= t_end-1:
+    ani = animation.FuncAnimation(fig, update_anim, frames = frames, interval=100, blit=True)
     if not ani._is_saving:  # Ensure animation isn't already being written
-        ani = animation.FuncAnimation(fig, update_anim, frames = frames, interval=100, blit=True)
         ani.save(success_filename, writer="ffmpeg", fps=10, dpi=150)
 
         print(f"Successful Model Run Animation saved to: {success_filename}")
