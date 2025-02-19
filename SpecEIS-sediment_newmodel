@@ -15,6 +15,7 @@ import json
 from firedrake import *
 import sys
 import pickle
+import gzip
 
 # HELPER FUNCTIONS
 def Max(a, b): return (a+b+abs(a-b))/df.Constant(2)
@@ -45,16 +46,14 @@ spy = 60**2*24*365
 thklim = 1.0                # Minimum Ice Thickness
 
 zmin = -300.0               # Minimum elevation
-#zmax = 2200.0               # Maximum elevation from OG
-zmax = 2000.0               # KT: Maximum elevation from RGI at Leconte
-
+zmax = 2200.0               # Maximum elevation from OG
 
 amin = df.Constant(-8.0)       # Minimum smb
-amax = df.Constant(5.0)        # Maximum smb
+amax = df.Constant(2.5)        # Maximum smb
 
 c = 2.0                     # Coefficient of exponential decay
 
-amp = 50.0                   # Amplitude of sinusoidal topography 
+amp = 100.0                   # Amplitude of sinusoidal topography 
 
 rho = rho_i = 917.                  # Ice density
 rho_w = 1029.0              # Seawater density
@@ -75,14 +74,13 @@ cc = df.Constant(5e-11)        # Fluvial erosion coefficient
 d = df.Constant(500.0)         # Fallout fraction
 h_0 = df.Constant(0.1)         # Subglacial cavity depth  
 
-
 k = df.Constant(0.7)           # Fraction of overburden defining water pressure
 
 # Shelf collapse factor - units of a^{-1}
 # Fraction of floating ice removed per year
 scf = df.Constant(0.2)
 
-k_diff = df.Constant(0)       # Sediment diffusivity
+k_diff = df.Constant(20)       # Sediment diffusivity
 h_ref = df.Constant(10)        # Thickness at which diffusivity stops increasing: sediment diffusive fluxes need to go
                                # to zero as sediment thickness goes to zero, which implies that the flux should be 
                                # proportional to the sed thickness - however, we also don't want thicker moraines to
@@ -90,12 +88,9 @@ h_ref = df.Constant(10)        # Thickness at which diffusivity stops increasing
                                # work.  As such the sediment flux is proportional to 1 - e^-(h/h_ref), which approximates
                                # a thickness-linear flux for thin sediment and thickness-independent flux for thick sediment.  
 
-
 dt_float = 0.1           # OG Time step
-#dt_float = 5.0           # KT: New Time step 
 
 dt = df.Constant(dt_float)
-
 
 ##########################################################
 ################           MESH          #################
@@ -111,10 +106,9 @@ H = df.Function(Q_dg)
 x, = df.SpatialCoordinate(mesh)
 
 surface_expression = (zmax - zmin)*df.exp(-3*x/L)  + zmin - amp*df.sin(4*np.pi*x/L) + thklim
-#bed_expression = (zmax - zmin)*df.exp(-3*x/L)  + zmin - amp*df.sin(4*np.pi*x/L)
-bed_expression = (zmax - zmin)*df.exp(-2.5*x/L)  + zmin - amp*df.sin(4*np.pi*x/40000)  #KT: trying other bed expressions
+bed_expression = (zmax - zmin)*df.exp(-3*x/L)  + zmin - amp*df.sin(4*np.pi*x/L)
+#bed_expression = (zmax - zmin)*df.exp(-2.5*x/L)  + zmin - amp*df.sin(4*np.pi*x/40000)  #KT: trying other bed expressions
 beta_expression = df.Constant(50.0)         #KT interp: basal friction coefficient?
-
 
 #########################################################
 #################  FUNCTION SPACES  #####################
@@ -241,8 +235,6 @@ climate_factor = df.Constant(1)
 #adot = climate_factor*(8 - 16/(4*L/3.)*x)  #this was hardcoded in new model
 #adot = climate_factor*(amin + (amax-amin)/(1-df.exp(-c))*(1.-df.exp(-c*((S/2000)))))
 adot = climate_factor*(amin + (amax-amin)/(1-df.exp(-c))*(1.-df.exp(-c*((S/(zmax-zmin)))))) #changng 2000 to be max elev - min elev like in paper
-
-
 
 
 ########################################################
@@ -489,8 +481,9 @@ udef0.vector().apply("insert")
 t_end = 30000
 
 plt.ion()
-fig, ax = plt.subplots(nrows=5,sharex=True,figsize=(10,12))
+fig, ax = plt.subplots(nrows=6,sharex=True,figsize=(10,12))
 fig_v, ax_v = plt.subplots(figsize=(10, 12))
+fig_smb, ax_smb = plt.subplots(figsize = (10,12))
 
 #Plotting Glacier Profile
 xx = df.interpolate(x,Q_dg).dat.data[:]
@@ -510,31 +503,46 @@ ax[0].plot(xx,np.zeros_like(xx),'b:',lw=0.5)
 ax[0].set_ylabel('Elevation (m)')
 ax[0].legend(loc = 'center right', fontsize = 10)
 
+
+#KT: SMB PLOT
+ph_SMB, = ax_smb.plot(adot, surf)
+
 #KT: Grounding Line Plot
 ph_grounded, = ax[1].plot(xx, np.zeros_like(xx), 'k-')
 ax[1].set_ylim(-0.05, 1.05)
 ax[1].set_ylabel('Grounded(0) VS Floating(1)')
+ax[1].yaxis.tick_right()
+ax[1].yaxis.set_label_position("right")
+
 
 thk = np.zeros(300)
 
-#KT: Velocity vs Distance Plot
-ph_us, = ax[2].plot(xx,np.zeros_like(xx),'r-',lw=1.5, label = 'Surface Velocity')
-ph_ub, = ax[2].plot(xx,np.zeros_like(xx),'g:',lw=1.5, label = 'Basal Velocity')
+#KT: Ice Thickness Plot
+thick = df.interpolate(H0,Q_dg)
+ph_thick, = ax[2].plot(xx,np.zeros_like(xx), 'b-')
 ax[2].set_ylim(0,500)
-ax[2].set_ylabel('Speed (m/yr)')
+ax[2].set_ylabel('Ice Thickness (m)')
+
+#KT: Velocity vs Distance Plot
+ph_us, = ax[3].plot(xx,np.zeros_like(xx),'r-',lw=1.5, label = 'Surface Velocity')
+ph_ub, = ax[3].plot(xx,np.zeros_like(xx),'g:',lw=1.5, label = 'Basal Velocity')
+ax[3].set_ylim(0,500)
+ax[3].set_ylabel('Speed (m/yr)')
 
 #Kt: Sediment Thickness Plot
 hs = df.interpolate(h_s0, Q_dg)
-ph_hs, = ax[3].plot(xx,np.zeros_like(xx),'k-',lw=1.0)
-ax[3].set_ylabel('Sediment Thickness (m)')
-ax[2].legend(loc = 'center right', fontsize = 10)
-ax[4].set_xlabel('Distance (m)')
+ph_hs, = ax[4].plot(xx,np.zeros_like(xx),'k-',lw=1.0)
+ax[4].set_ylabel('Sediment Thickness (m)')
+ax[4].legend(loc = 'center right', fontsize = 10)
+ax[4].yaxis.tick_right()
+ax[4].yaxis.set_label_position("right")
 
-#KT: Ice Thickness Plot
-thick = df.interpolate(H0,Q_dg)
-ph_thick, = ax[4].plot(xx,np.zeros_like(xx), 'b-')
-ax[4].set_ylim(0,500)
-ax[4].set_ylabel('Ice Thickness (m)')
+#KT: Fluvial Sediment Flux Plot
+fluv = df.interpolate(Qs0,Q_dg)
+ph_fluv, = ax[5].plot(xx,np.zeros_like(xx),'b')
+ax[5].set_ylabel('Fluvial Sediment Flux')
+ax[5].set_ylim(0,500)
+ax[5].set_xlabel('Distance (m)')
 
 #KT: Velocity over time plot initialization
 ph_surface, = ax_v.plot([], [], 'r-', label="Surface Velocity (max)")
@@ -585,8 +593,9 @@ def update_anim(frame):
     ph_ub.set_ydata(ub_dict[t])
     ph_thick.set_ydata(H_dict[t])
     ph_hs.set_ydata(Hs_dict[t])
+    ph_fluv.set_ydata(Qs_dict[t])
 
-    return [time_text, ph_bed, ph_base, ph_surf, ph_sed, ph_grounded, ph_ub, ph_us, ph_thick, ph_hs]
+    return [time_text, ph_bed, ph_base, ph_surf, ph_sed, ph_grounded, ph_ub, ph_us, ph_thick, ph_hs, ph_fluv]
 
 
 ######### KT: OUTPUT DIRECTORIES & FILES FOR STORING SIMULATION DATA ################################
@@ -600,11 +609,11 @@ success_filename = os.path.join(full_anim,f"FullModelRun_{start_time}.mp4")
 crash_filename = os.path.join(anim_crash,f"CrashedModelRun_{start_time}.mp4")
 interrupt_filename = os.path.join(anim_rupt,f"InterruptedModelRun_{start_time}.mp4")
 
-#KT: State Variable Folder 
-state_folder = "/home/kayatroyer/Repositories/brinkmodeltest/Output/State_Variables" 
-
 #KT: Dictionary Folder
 dicts_folder = "/home/kayatroyer/Repositories/brinkmodeltest/Output/Variable_Dictionaries"
+
+#KT: State Variable Folder 
+state_folder = "/home/kayatroyer/Repositories/brinkmodeltest/Output/State_Variables" 
 
 #KT: Making output directories and files
 indiv_run_name = f"Run_{start_time}"
@@ -612,8 +621,10 @@ indiv_run_path = os.path.join(state_folder,indiv_run_name)
 os.makedirs(indiv_run_path, exist_ok=True)
 
 #KT: initializing checkpoint files in appropriate directories
-half_checkpoint = os.path.join(indiv_run_path, "checkpoint_halfway.h5")
-final_checkpoint = os.path.join(indiv_run_path, "checkpoint_final.h5")
+half_checkpoint_path = os.path.join(indiv_run_path, "checkpoint_halfway.h5")
+final_checkpoint_path = os.path.join(indiv_run_path, "checkpoint_final.h5")
+# half_checkpoint = CheckpointFile(half_checkpoint_path, "w")
+# final_checkpoint = CheckpointFile(final_checkpoint_path, "w")
 
 #KT: In event of interrupt, simulation movie saves
 def interrupt(signal, frame):
@@ -653,7 +664,7 @@ while t<t_end:
         if counter%1==0:
             fig.canvas.start_event_loop(0.00001)
             fig.canvas.draw_idle()
-
+            
         # Solve the velocity-ice thickness equations
         mass_solver.solve(bounds=(lower_bounds,upper_bounds))
 
@@ -701,6 +712,10 @@ while t<t_end:
         if len(nan_idx) > 0:  
             time_values[nan_idx[0]] = t      
 
+        #KT:SMB Plot
+        ax_smb.set_ydata(surf)
+        ax_smb.set_xdata(adot)
+
         #KT: Grounding Line Plot
         grounded = df.interpolate(floating,Q_dg)
         g_ = grounded.dat.data[:]
@@ -722,27 +737,32 @@ while t<t_end:
         Qs = df.interpolate(Qs0, Q_dg)
         thick = df.interpolate(H0,Q_dg)
 
-        #Updating Data on Plot
+        #Updating Data on Main Glacier Plot
         ph_bed.set_ydata(B0.dat.data[:])
         ph_base.set_ydata(base.dat.data[:])
         ph_surf.set_ydata(surf.dat.data[:])
         ph_sed.set_ydata(sed.dat.data[:])
 
+        #Updating basal and surface speeds vs distance
         ph_us.set_ydata(us_)
         ph_ub.set_ydata(ub_)
+
+        #KT: Updating Ice Thickness
+        ph_thick.set_ydata(thick.dat.data[:])
+        ax[2].set_ylim(0,thick.dat.data[:].max()+100)  #KT: actively changing y axis
 
         #KT: added to avoid issues with NaNs in the thklim 
         us_filtered = us_[np.isfinite(us_)]  
         if len(us_filtered) > 0:
-            ax[2].set_ylim(0, us_filtered.max() + 50) #KT: actively changing y axis
+            ax[3].set_ylim(0, us_filtered.max() + 50) #KT: actively changing y axis
 
         #KT: Updating Sediment Thickness
         ph_hs.set_ydata(hs.dat.data[:])
-        ax[3].set_ylim(0,hs.dat.data[:].max()+5) #KT: actively changing y axis
+        ax[4].set_ylim(0,hs.dat.data[:].max() + 50) #KT: actively changing y axis
 
-        #KT: Updating Ice Thickness
-        ph_thick.set_ydata(thick.dat.data[:])
-        ax[4].set_ylim(0,thick.dat.data[:].max()+100)  #KT: actively changing y axis
+        #KT: Updating Fluvial Seidment Flux
+        ph_fluv.set_ydata(Qs.dat.data[:])
+        ax[5].set_ylim(0,Qs.dat.data[:].max() + 50 ) #KT: actively changing y axis
 
         #KT: Velocities over time, extracted from 50 indices behind terminus
         notNAN = np.where(np.isfinite(us_))[0]
@@ -772,8 +792,9 @@ while t<t_end:
         ph_surface.set_ydata(surface_velocity)
         ph_basal.set_ydata(basal_velocity)
 
-        if t > ax_v.get_xlim()[1]:
-            ax_v.set_xlim(0, t + 100)  
+        ax_v.set_xlim(0,t_end)      
+        # if t > ax_v.get_xlim()[1]:
+        #     ax_v.set_xlim(0, t + 100)  
 
         if max(surface_velocity + basal_velocity) > ax_v.get_ylim()[1]:
             ax_v.set_ylim(0, max(surface_velocity + basal_velocity) + 50)  # Extend velocity axis
@@ -797,7 +818,7 @@ while t<t_end:
         H_dict[t] = thick.dat.data[:]         
         us_dict[t] = us_           
         ub_dict[t] = ub_        
-        Hs_dict[t] = sed.dat.data[:]        
+        Hs_dict[t] = hs.dat.data[:]        
         GL_dict[t] = g_             
         Qs_dict[t] = Qs.dat.data[:]        
 
@@ -817,24 +838,23 @@ while t<t_end:
         }
          #KT: Pickling Data Dictionary
         dict_filename = os.path.join(dicts_folder, f"DATA_Dictionary_{start_time}.pkl")
-        with open(dict_filename, 'wb') as f:
+        with gzip.open(dict_filename, 'wb') as f:
             pickle.dump(DATA_dict,f)
         
         #KT: Storing to HDF5 file 
         half = t_end//2
 
-        if counter == 3:
-            if counter == 0:
-                half_checkpoint.save_mesh(mesh,name = 'mesh_State')      #Saving the mesh at start
-
+        if counter == half:
             with open(os.path.join(indiv_run_path, 'time_dict.json'), 'w') as f:
                 json.dump(time_dict, f)
 
             # Saving Functions
-            with CheckpointFile(half_checkpoint, "w") as half_checkpoint:
-                half_checkpoint.save_function(U, name = 'U_State')
-                half_checkpoint.save_function(T, name = 'T_State')
-                half_checkpoint.save_function(P, name = 'P_State')
+            with CheckpointFile(half_checkpoint_path, "w") as Check_Half:
+                Check_Half.save_function(U, name = 'U_State')
+                Check_Half.save_function(T, name = 'T_State')
+                Check_Half.save_function(P, name = 'P_State')
+                if counter == 0:
+                    Check_Half.save_mesh(mesh)      #Saving the mesh at start
 
         t+=dt_float
         counter+=1
@@ -867,7 +887,7 @@ while t<t_end:
     if (dt_float < 1e-10): # Things have really gone off the rails and the simulation is shutting down
         print("model stalling, time step approaching zero. Saving animation before shutdown...")
         
-        ani_break = animation.FuncAnimation(fig, update_anim, frames = frames, interval=100, blit=True) #KT: added
+        ani_break = animation.FuncAnimation(fig, update_anim, frames = len(frames), interval=100, blit=True) #KT: added
         ani_break.save(crash_filename, writer="ffmpeg", fps=10, dpi=150)    #KT: added
 
         print(f"Crashed Animation saved to: {crash_filename}")  #KT: added
@@ -875,21 +895,20 @@ while t<t_end:
         break
 
 #KT: added this to do a final save of model stuff
-if t >= t_end-1:
-    ani = animation.FuncAnimation(fig, update_anim, frames = frames, interval=100, blit=True)
-    if not ani._is_saving:  # Ensure animation isn't already being written
-        ani.save(success_filename, writer="ffmpeg", fps=10, dpi=150)
+if t >= t_end-5:
+    ani = animation.FuncAnimation(fig, update_anim, frames = len(frames), interval=100, blit=True)
+    #if not ani._is_saving:  # Ensure animation isn't already being written
+    ani.save(success_filename, writer="ffmpeg", fps=10, dpi=150)
 
-        print(f"Successful Model Run Animation saved to: {success_filename}")
+    print(f"Successful Model Run Animation saved to: {success_filename}")
 
     print("Simulation completed successfully. Saving final state variables... ")
 
     with open(os.path.join(indiv_run_path, 'time_dict_final.json'), 'w') as f:
                 json.dump(time_dict, f)
         
-    with CheckpointFile(final_checkpoint, "w") as final_checkpoint:
-        final_checkpoint.save_mesh(mesh, name ='mesh_State_final')
-        final_checkpoint.save_function(U, name = 'U_State_final')
-        final_checkpoint.save_function(T, name = 'T_State_final')
-        final_checkpoint.save_function(P, name = 'P_State_final')
-            
+    with CheckpointFile(final_checkpoint_path, "w") as Check_Final:
+        Check_Final.save_function(U, name = 'U_State_final')
+        Check_Final.save_function(T, name = 'T_State_final')
+        Check_Final.save_function(P, name = 'P_State_final')
+        Check_Final.save_mesh(mesh)
