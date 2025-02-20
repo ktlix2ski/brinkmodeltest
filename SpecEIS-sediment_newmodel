@@ -40,16 +40,16 @@ def full_quad(order):
 # Logistic function
 sigmoid = lambda z: 1./(1+df.exp(-z))
 
-#L = 45000.                  # OG: Characteristic domain length
-L = 55000                    #KT: Leconte L
+L = 45000.                  # OG: Characteristic domain length
+#L = 55000                    #KT: Leconte L
 spy = 60**2*24*365          
 thklim = 1.0                # Minimum Ice Thickness
 
 zmin = -300.0               # Minimum elevation
 zmax = 2200.0               # Maximum elevation from OG
 
-amin = df.Constant(-8.0)       # Minimum smb
-amax = df.Constant(2.5)        # Maximum smb
+amin = df.Constant(-7.0)       # Minimum smb
+amax = df.Constant(5.0)        # Maximum smb
 
 c = 2.0                     # Coefficient of exponential decay
 
@@ -68,9 +68,12 @@ m = 1.0                     # Sliding law exponent
 b = 1e-16**(-1./n)          # Ice hardness
 eps_reg = df.Constant(1e-4)    # Regularization parameter
 
+
 l_s = df.Constant(2.0)         # Sediment thickness at which bedrock erosion becomes negligible 
-be = df.Constant(2e-9)         # Bedrock erosion coefficient
-cc = df.Constant(5e-11)        # Fluvial erosion coefficient
+# be = df.Constant(2e-9)         # Bedrock erosion coefficient
+be = df.Constant(1e-8)         # Paper code Bedrock erosion coefficient
+# cc = df.Constant(5e-11)        # Fluvial erosion coefficient
+cc = df.Constant(2e-12)        # Paper code Fluvial erosion coefficient
 d = df.Constant(500.0)         # Fallout fraction
 h_0 = df.Constant(0.1)         # Subglacial cavity depth  
 
@@ -78,9 +81,10 @@ k = df.Constant(0.7)           # Fraction of overburden defining water pressure
 
 # Shelf collapse factor - units of a^{-1}
 # Fraction of floating ice removed per year
-scf = df.Constant(0.2)
+scf = df.Constant(0.0)
 
-k_diff = df.Constant(20)       # Sediment diffusivity
+# k_diff = df.Constant(20)       # Sediment diffusivity
+k_diff = df.Constant(5000)       # Paper code Sediment diffusivity
 h_ref = df.Constant(10)        # Thickness at which diffusivity stops increasing: sediment diffusive fluxes need to go
                                # to zero as sediment thickness goes to zero, which implies that the flux should be 
                                # proportional to the sed thickness - however, we also don't want thicker moraines to
@@ -231,9 +235,10 @@ S = Base + H                                 # Ice surface
 beta2 = df.interpolate(beta_expression,Q_cg)  #KT: beta_expression = 50
 
 # Surface mass balance
-climate_factor = df.Constant(1)      
+climate_factor = df.Constant(1.0)      
 #adot = climate_factor*(8 - 16/(4*L/3.)*x)  #this was hardcoded in new model
 #adot = climate_factor*(amin + (amax-amin)/(1-df.exp(-c))*(1.-df.exp(-c*((S/2000)))))
+# adot = climate_factor*(amin + (amax-amin)/(1-df.exp(-c))*(1.-df.exp(-c*((S/(zmax-zmin))))))*grounded + (-0.5*H)*(1-grounded) #OG paper code equation
 adot = climate_factor*(amin + (amax-amin)/(1-df.exp(-c))*(1.-df.exp(-c*((S/(zmax-zmin)))))) #changng 2000 to be max elev - min elev like in paper
 
 
@@ -505,7 +510,7 @@ ax[0].legend(loc = 'center right', fontsize = 10)
 
 
 #KT: SMB PLOT
-ph_SMB, = ax_smb.plot(adot, surf)
+# ph_SMB, = ax_smb.plot(adot, surf)
 
 #KT: Grounding Line Plot
 ph_grounded, = ax[1].plot(xx, np.zeros_like(xx), 'k-')
@@ -713,8 +718,8 @@ while t<t_end:
             time_values[nan_idx[0]] = t      
 
         #KT:SMB Plot
-        ax_smb.set_ydata(surf)
-        ax_smb.set_xdata(adot)
+        # ax_smb.set_ydata(surf)
+        # ax_smb.set_xdata(adot)
 
         #KT: Grounding Line Plot
         grounded = df.interpolate(floating,Q_dg)

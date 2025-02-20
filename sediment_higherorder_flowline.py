@@ -9,11 +9,13 @@
 ####################################################################################
 ####################################################################################
 
-#import matplotlib
+import matplotlib
 import dolfin as df
 import ufl
 import matplotlib.pyplot as plt
 import numpy as np
+matplotlib.use('Qt5Agg')  # or 'TkAgg' if you prefer Tkinter
+
 
 ##########################################################
 ###############        CONSTANTS       ###################
@@ -39,19 +41,19 @@ def full_quad(order):
 # Logistic function
 sigmoid = lambda z: 1./(1+df.exp(-z))
 
-L = 40000.                  # Characteristic domain length *in meters) #changed from 45000 to 40000 cux leconte is 40 km long
-spy = 60**2*24*365          # seconds per  year
+L = 45000.                  # Characteristic domain length
+spy = 60**2*24*365          
 thklim = 1.0                # Minimum Ice Thickness
 
-zmin = -270.0               # Minimum elevation (bedrock elevation) changed from 300 to 270 *O'Neel 2017
-zmax = 1800.0               # Maximum elevation (bedrock elevation) #was originally 2200 m 
+zmin = -300.0               # Minimum elevation
+zmax = 2200.0               # Maximum elevation
 
-amin = df.Constant(-7.0)       # Minimum smb surface mass balance (ablation rate near terminus)
-amax = df.Constant(5.0)        # Maximum smb surface mass balance accumulation rate up high (meters per year)
+amin = df.Constant(-7.0)       # Minimum smb
+amax = df.Constant(5.0)        # Maximum smb
 
-c = 2.0                     # Coefficient of exponential decay (f in equation 11??)
+c = 2.0                     # Coefficient of exponential decay
 
-amp = 0.0                   # Amplitude of sinusoidal topography (for bedrock topography)
+amp = 100.0                   # Amplitude of sinusoidal topography 
 
 rho = rho_i = 917.                  # Ice density
 rho_w = 1029.0              # Seawater density
@@ -63,20 +65,19 @@ La = 3.35e5
 g = 9.81                    # Gravitational acceleration
 n = 3.0                     # Glen's exponent
 m = 1.0                     # Sliding law exponent
-b = 1e-16**(-1./n)          # Ice hardness (should be for temperate ice, check this)
+b = 1e-16**(-1./n)          # Ice hardness
 eps_reg = df.Constant(1e-4)    # Regularization parameter
 
 l_s = df.Constant(2.0)         # Sediment thickness at which bedrock erosion becomes negligible 
 be = df.Constant(1e-8)         # Bedrock erosion coefficient
 cc = df.Constant(2e-11)        # Fluvial erosion coefficient
-d = df.Constant(500.0)         # Fallout fraction(wdot in eqn 7)
-h_0 = df.Constant(0.1)         # Subglacial cavity depth (eqn 4 - not sure exactly howit is used) 
+d = df.Constant(500.0)         # Fallout fraction
+h_0 = df.Constant(0.1)         # Subglacial cavity depth  
 
 
-k = df.Constant(0.7) 
+k = df.Constant(0.7)
 
-#dt_float = 0.1           # OG Time step 
-dt_float = 5.0           # New Time step 
+dt_float = 0.1           # Time step
 dt = df.Constant(dt_float)
 
 #########################################################
@@ -177,8 +178,8 @@ udef0 = df.Function(Q_cg)
 H0 = df.Function(Q_dg)
 H0_ = df.Function(Q_cg)
 
-H0.vector()[:] =200
-H0_.vector()[:] = 200
+H0.vector()[:] = 25
+H0_.vector()[:] = 25
 
 B0 = df.interpolate(Bed(),Q_cg)
 B0_ = df.interpolate(Bed(),Q_dg)
@@ -220,8 +221,7 @@ ghat = 1/(1 + df.exp(-(H*rho_i/rho_w + 3 - D)))  # Approximate flotation indicat
 
 beta2 = df.interpolate(Beta2(),Q_cg)   # Traction
 
-climate_factor = df.Constant(1.0)      # Climate: <1 → more continental climate, >1 → more maritime climate 
-
+climate_factor = df.Constant(1.0)      # Climate
 adot = climate_factor*(amin + (amax-amin)/(1-df.exp(-c))*(1.-df.exp(-c*((S/2000)))))#*grounded + (-0.5*H)*(1-grounded)
 
 ########################################################
@@ -253,7 +253,7 @@ class VerticalIntegrator(object):
         return sum([self.integral_term(f,s,w) for s,w in zip(self.points,self.weights)])
 
 def dsdx(s):
-    return 1./H_*(S.dx(0) - s*H_.dx(0)) #an issue 
+    return 1./H_*(S.dx(0) - s*H_.dx(0))
 
 def dsdz(s):
     return -1./H_
@@ -426,9 +426,9 @@ BB = B0.compute_vertex_values()
 SS = df.project(S).compute_vertex_values()
 Ba = df.project(Base).compute_vertex_values()
 ph_bed, = ax[0].plot(x,BB,'k-',lw=1.0)
-ph_surface, = ax[0].plot(x,SS,'c-',lw=1.0, label = 'Surface') #i added in these labels after the line weights
-ph_bottom, = ax[0].plot(x,Ba,'m-',lw=1.0, label = 'Bottom')
-ph_sed, = ax[0].plot(x,SS,'g-',lw=1.0, label = 'Sediment')
+ph_surface, = ax[0].plot(x,SS,'c-',lw=0.5)
+ph_bottom, = ax[0].plot(x,Ba,'c-',lw=0.5)
+ph_sed, = ax[0].plot(x,SS,'g-',lw=0.5)
 ax[0].plot(x,np.zeros_like(x),'b:',lw=0.5)
 ax[0].set_ylabel('Elevation')
 
@@ -437,18 +437,14 @@ ph_grounded, = ax[1].plot(x,np.zeros_like(x),'k-',lw=1.0)
 ax[1].set_ylim(-0.05,1.05)
 ax[1].set_ylabel('Grounded')
 
-ph_us, = ax[2].plot(x,np.zeros_like(x),'r-',lw=1.5, label = 'Surface Velocity')
-ph_ub, = ax[2].plot(x,np.zeros_like(x),'g:',lw=1.5, label = 'Basal Velocity')
+ph_us, = ax[2].plot(x,np.zeros_like(x),'r-',lw=1.0)
+ph_ub, = ax[2].plot(x,np.zeros_like(x),'k-',lw=1.0)
 ax[2].set_ylim(0,500)
 ax[2].set_ylabel('Speed (m/a)')
 
 ph_hs, = ax[3].plot(x,np.zeros_like(x),'k-',lw=1.0)
 ax[3].set_ylabel('Sed. Thk.')
 ax[3].set_xlabel('Dist.')
-
-ax[0].legend(loc = 'center right', fontsize = 10)
-ax[2].legend(loc = 'center right', fontsize = 10)
-
 
 plt.pause(0.00001)
 
@@ -461,15 +457,6 @@ counter = 0
 # Maximum time step!!  Increase with caution.
 dt_max = 1.0
 
-#attempt to plot variables over time in an active plot
-time_values = np.full(301,np.nan) #i added this
-term_thk_val=np.full(301,np.nan)
-plt.ion()
-fig_term, ax_term = plt.subplots()
-line_term, = ax_term.plot([],[])
-
-
-
 # Initialization stuff
 ubarinit = df.Function(Q_cg)
 udefinit = df.Function(Q_cg)
@@ -479,8 +466,6 @@ ubar0.vector()[:] += 1e-1*np.random.randn(ubar0.vector().get_local().shape[0])
 udef0.vector()[:] += 1e-3*np.random.randn(udef0.vector().get_local().shape[0])
 assigner_g.assign(U,[ubar0,udef0,H0,H0_])
 assigner_s.assign(T,[B0,Qs0,h_s0,h_s_0,h_eff0])
-
-time_text = ax[0].text(0.80,0.90,'', transform=ax[0].transAxes, fontsize = 12) #i added this to try to add timestamp
 
 # Loop over time
 while t<t_end:
@@ -530,14 +515,6 @@ while t<t_end:
         dt.assign(dt_float)
 
         # Do some plotting
-        time_text.set_text(f'Time: {t:.2f} years')  #i added this and i think the unit is years?
-                
-        nan_idx = np.where(np.isnan(time_values))[0]  #this adds times to the time_values as it runs through the loop and replaces nans
-        if len(nan_idx) > 0:  
-           time_values[nan_idx[0]] = t 
-        
-        
-           
         thk = H0_.compute_vertex_values()
         bed = B0.compute_vertex_values()
         surface = df.project(S).compute_vertex_values()
@@ -553,7 +530,6 @@ while t<t_end:
         ph_surface.set_ydata(surface)
         ph_bottom.set_ydata(bottom)
         ph_sed.set_ydata(sed_surface) 
-        
     
         ph_grounded.set_ydata(grounded.compute_vertex_values())
 
@@ -567,33 +543,11 @@ while t<t_end:
 
         ph_hs.set_ydata(h_s0.compute_vertex_values())
         ax[3].set_ylim(0,h_s0.compute_vertex_values().max()+10)
- 
-        #i added this
-        terminus_indices= np.where(thk>50)[0]#Get the last index where thickness is not 1
-        
-        
-        if terminus_indices.size>= 4:
-            terminus_cell =thk[terminus_indices[-5:]] # Get the last index where thickness > 1
-            term_thk = np.mean(terminus_cell)
-        else:
-            term_thk=np.nan 
-            
-        # nan_idx = np.where(np.isnan(term_thk_val))[0]
-        # if len(nan_idx) > 0:
-        #     term_thk_val[nan_idx[0]] = term_thk
-        
-        #updates time plot, i added this
-        line_term.set_data(time_values,term_thk)
-        ax_term.relim()  
-        ax_term.autoscale_view()  
-        fig_term.canvas.draw_idle()
- 
-        if counter%20==0:
+
+        if counter%5==0:
             #pause(0.00001)
             fig.canvas.start_event_loop(0.001)
             fig.canvas.draw_idle()
-        if counter%50==0:
-            fig_term.canvas.start_event_loop(0.001)
 
         t+=dt_float
         counter+=1
@@ -601,7 +555,4 @@ while t<t_end:
         dt_float/=2.
         dt.assign(dt_float)
         print('convergence failed, reducing time step and trying again')
-        
-#lt.ioff()
-#lt.show()
     
