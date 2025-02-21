@@ -53,7 +53,7 @@ amax = df.Constant(5.0)        # Maximum smb
 
 c = 2.0                     # Coefficient of exponential decay
 
-amp = 100.0                   # Amplitude of sinusoidal topography 
+amp = 50.0                   # Amplitude of sinusoidal topography 
 
 rho = rho_i = 917.                  # Ice density
 rho_w = 1029.0              # Seawater density
@@ -70,10 +70,10 @@ eps_reg = df.Constant(1e-4)    # Regularization parameter
 
 
 l_s = df.Constant(2.0)         # Sediment thickness at which bedrock erosion becomes negligible 
-# be = df.Constant(2e-9)         # Bedrock erosion coefficient
-be = df.Constant(1e-8)         # Paper code Bedrock erosion coefficient
-# cc = df.Constant(5e-11)        # Fluvial erosion coefficient
-cc = df.Constant(2e-12)        # Paper code Fluvial erosion coefficient
+be = df.Constant(2e-9)         # Bedrock erosion coefficient
+#be = df.Constant(1e-8)         # Paper code Bedrock erosion coefficient
+cc = df.Constant(1e-11)        # Fluvial erosion coefficient
+#cc = df.Constant(2e-12)        # Paper code Fluvial erosion coefficient
 d = df.Constant(500.0)         # Fallout fraction
 h_0 = df.Constant(0.1)         # Subglacial cavity depth  
 
@@ -81,10 +81,10 @@ k = df.Constant(0.7)           # Fraction of overburden defining water pressure
 
 # Shelf collapse factor - units of a^{-1}
 # Fraction of floating ice removed per year
-scf = df.Constant(0.0)
+scf = df.Constant(0.2)
 
 # k_diff = df.Constant(20)       # Sediment diffusivity
-k_diff = df.Constant(5000)       # Paper code Sediment diffusivity
+k_diff = df.Constant(20)       # Paper code Sediment diffusivity
 h_ref = df.Constant(10)        # Thickness at which diffusivity stops increasing: sediment diffusive fluxes need to go
                                # to zero as sediment thickness goes to zero, which implies that the flux should be 
                                # proportional to the sed thickness - however, we also don't want thicker moraines to
@@ -236,10 +236,10 @@ beta2 = df.interpolate(beta_expression,Q_cg)  #KT: beta_expression = 50
 
 # Surface mass balance
 climate_factor = df.Constant(1.0)      
-#adot = climate_factor*(8 - 16/(4*L/3.)*x)  #this was hardcoded in new model
+adot = climate_factor*(8 - 16/(4*L/3.)*x)  #this was hardcoded in new model
 #adot = climate_factor*(amin + (amax-amin)/(1-df.exp(-c))*(1.-df.exp(-c*((S/2000)))))
 # adot = climate_factor*(amin + (amax-amin)/(1-df.exp(-c))*(1.-df.exp(-c*((S/(zmax-zmin))))))*grounded + (-0.5*H)*(1-grounded) #OG paper code equation
-adot = climate_factor*(amin + (amax-amin)/(1-df.exp(-c))*(1.-df.exp(-c*((S/(zmax-zmin)))))) #changng 2000 to be max elev - min elev like in paper
+#adot = climate_factor*(amin + (amax-amin)/(1-df.exp(-c))*(1.-df.exp(-c*((S/(zmax-zmin)))))) #changng 2000 to be max elev - min elev like in paper
 
 
 ########################################################

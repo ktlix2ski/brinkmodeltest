@@ -467,6 +467,10 @@ udef0.vector()[:] += 1e-3*np.random.randn(udef0.vector().get_local().shape[0])
 assigner_g.assign(U,[ubar0,udef0,H0,H0_])
 assigner_s.assign(T,[B0,Qs0,h_s0,h_s_0,h_eff0])
 
+#KT: Only adding timestamp
+time_text = ax[0].text(0.70,0.90,'', transform=ax[0].transAxes, fontsize = 12) #i added this
+
+
 # Loop over time
 while t<t_end:
     try: # If the solvers don't converge, reduce the time step and try again.
@@ -515,6 +519,8 @@ while t<t_end:
         dt.assign(dt_float)
 
         # Do some plotting
+        time_text.set_text(f'Time: {t:.2f} years') #KT: Only thing i added
+
         thk = H0_.compute_vertex_values()
         bed = B0.compute_vertex_values()
         surface = df.project(S).compute_vertex_values()
