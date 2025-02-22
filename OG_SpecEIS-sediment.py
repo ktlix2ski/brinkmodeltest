@@ -61,8 +61,8 @@ eps_reg = df.Constant(1e-4)    # Regularization parameter
 
 l_s = df.Constant(2.0)         # Sediment thickness at which bedrock erosion becomes negligible 
 be = df.Constant(2e-9)         # Bedrock erosion coefficient
-#cc = df.Constant(1e-11)        # Fluvial erosion coefficient
-cc = df.Constant(2e-12)        # Paper code Fluvial erosion coefficient
+cc = df.Constant(5e-11)        # Fluvial erosion coefficient
+# cc = df.Constant(2e-12)        # Paper code Fluvial erosion coefficient
 d = df.Constant(500.0)         # Fallout fraction
 h_0 = df.Constant(0.1)         # Subglacial cavity depth  
 
@@ -225,8 +225,7 @@ beta2 = df.interpolate(beta_expression,Q_cg)
 
 # Surface mass balance
 climate_factor = df.Constant(1)      
-#adot = climate_factor*(8 - 16/(4*L/3.)*x)
-adot = climate_factor*(amin + (amax-amin)/(1-df.exp(-c))*(1.-df.exp(-c*((S/(zmax-zmin))))))*grounded + (-0.5*H)*(1-grounded)
+adot = climate_factor*(8 - 16/(4*L/3.)*x)
 
 ########################################################
 #################   MOMENTUM BALANCE   #################
@@ -452,6 +451,9 @@ sed_solver = df.NonlinearVariationalSolver(sed_problem, solver_parameters=solver
 
 plt.ion()
 fig, ax = plt.subplots()
+fig_a,ax_a = plt.subplots()
+
+
 
 xx = df.interpolate(x,Q_dg).dat.data[:]
 ph_bed, = ax.plot(xx,B0.dat.data[:],'k-')
@@ -461,6 +463,12 @@ surf = df.interpolate(S,Q_dg)
 ph_surf, = ax.plot(xx,surf.dat.data[:],'b-')
 sed = df.interpolate(B0 + h_s0,Q_dg)
 ph_sed, = ax.plot(xx,sed.dat.data[:],'g-')
+
+SMB = df.interpolate(adot,Q_dg)
+ph_SMB, = ax_a.plot(SMB.dat.data[:], surf.dat.data[:], 'b-')
+ax_a.invert_xaxis()
+ax_a.set_ylabel("Glacier Surface (m)")
+ax_a.set_xlabel("SMB (m/yr)")
 
 
 ##############################################################################
@@ -535,6 +543,8 @@ while t<t_end:
         ph_base.set_ydata(base.dat.data[:])
         ph_surf.set_ydata(surf.dat.data[:])
         ph_sed.set_ydata(sed.dat.data[:])
+
+        ph_SMB.set_ydata(surf.dat.data[:])
 
         t+=dt_float
         counter+=1

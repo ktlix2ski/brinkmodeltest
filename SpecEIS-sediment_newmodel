@@ -48,10 +48,10 @@ thklim = 1.0                # Minimum Ice Thickness
 zmin = -300.0               # Minimum elevation
 zmax = 2200.0               # Maximum elevation from OG
 
-amin = df.Constant(-7.0)       # Minimum smb
-amax = df.Constant(5.0)        # Maximum smb
+amin = df.Constant(-16.0)       # Minimum smb
+amax = df.Constant(8.0)        # Maximum smb
 
-c = 2.0                     # Coefficient of exponential decay
+c = 2.0                       # Coefficient of exponential decay
 
 amp = 50.0                   # Amplitude of sinusoidal topography 
 
@@ -62,26 +62,26 @@ rho_r = 2750.0              # Bedrock density
 
 La = 3.35e5                 #KT: latent heat of melting?
 
-g = 9.81                    # Gravitational acceleration
-n = 3.0                     # Glen's exponent
-m = 1.0                     # Sliding law exponent
-b = 1e-16**(-1./n)          # Ice hardness
+g = 9.81                       # Gravitational acceleration
+n = 3.0                        # Glen's exponent
+m = 1.0                        # Sliding law exponent
+b = 1e-16**(-1./n)             # Ice hardness
 eps_reg = df.Constant(1e-4)    # Regularization parameter
 
 
 l_s = df.Constant(2.0)         # Sediment thickness at which bedrock erosion becomes negligible 
 be = df.Constant(2e-9)         # Bedrock erosion coefficient
 #be = df.Constant(1e-8)         # Paper code Bedrock erosion coefficient
-cc = df.Constant(1e-11)        # Fluvial erosion coefficient
+cc = df.Constant(5e-11)        # Fluvial erosion coefficient
 #cc = df.Constant(2e-12)        # Paper code Fluvial erosion coefficient
 d = df.Constant(500.0)         # Fallout fraction
 h_0 = df.Constant(0.1)         # Subglacial cavity depth  
 
 k = df.Constant(0.7)           # Fraction of overburden defining water pressure
 
-# Shelf collapse factor - units of a^{-1}
-# Fraction of floating ice removed per year
-scf = df.Constant(0.2)
+# Shelf collapse factor 
+# units of a^{-1}
+scf = df.Constant(0.2)          # Fraction of floating ice removed per year
 
 # k_diff = df.Constant(20)       # Sediment diffusivity
 k_diff = df.Constant(20)       # Paper code Sediment diffusivity
@@ -92,7 +92,7 @@ h_ref = df.Constant(10)        # Thickness at which diffusivity stops increasing
                                # work.  As such the sediment flux is proportional to 1 - e^-(h/h_ref), which approximates
                                # a thickness-linear flux for thin sediment and thickness-independent flux for thick sediment.  
 
-dt_float = 0.1           # OG Time step
+dt_float = 0.1                  # OG Time step
 
 dt = df.Constant(dt_float)
 
@@ -236,7 +236,9 @@ beta2 = df.interpolate(beta_expression,Q_cg)  #KT: beta_expression = 50
 
 # Surface mass balance
 climate_factor = df.Constant(1.0)      
-adot = climate_factor*(8 - 16/(4*L/3.)*x)  #this was hardcoded in new model
+#adot = climate_factor*(8 - 16/(4*L/3.)*x)  #this was hardcoded in new model
+adot = climate_factor*(amax +(amin-amax)*(x/(2*L))) #USE THIS: Variable version of hardcoded from new model, produces same outcome but lets you easily change amin and amax
+
 #adot = climate_factor*(amin + (amax-amin)/(1-df.exp(-c))*(1.-df.exp(-c*((S/2000)))))
 # adot = climate_factor*(amin + (amax-amin)/(1-df.exp(-c))*(1.-df.exp(-c*((S/(zmax-zmin))))))*grounded + (-0.5*H)*(1-grounded) #OG paper code equation
 #adot = climate_factor*(amin + (amax-amin)/(1-df.exp(-c))*(1.-df.exp(-c*((S/(zmax-zmin)))))) #changng 2000 to be max elev - min elev like in paper
@@ -559,6 +561,13 @@ ax_v.set_ylabel("Velocity (m/yr)")
 ax_v.set_title("Velocity Evolution Over Time")
 ax_v.legend(loc = 'center right', fontsize = 10)
 
+#KT: SMB Plot
+SMB = df.interpolate(adot,Q_dg)
+ph_SMB, = ax_smb.plot(SMB.dat.data[:], surf.dat.data[:], 'b-')
+ax_smb.invert_xaxis()
+ax_smb.set_ylabel("Glacier Surface (m)")
+ax_smb.set_xlabel("SMB (m/yr)")
+
 #KT: Storing values over time 
 time_values = []  
 surface_velocity = []  
@@ -759,15 +768,18 @@ while t<t_end:
         #KT: added to avoid issues with NaNs in the thklim 
         us_filtered = us_[np.isfinite(us_)]  
         if len(us_filtered) > 0:
-            ax[3].set_ylim(0, us_filtered.max() + 50) #KT: actively changing y axis
+            ax[3].set_ylim(0, us_filtered.max() + 100) #KT: actively changing y axis
 
         #KT: Updating Sediment Thickness
         ph_hs.set_ydata(hs.dat.data[:])
-        ax[4].set_ylim(0,hs.dat.data[:].max() + 50) #KT: actively changing y axis
+        ax[4].set_ylim(0,hs.dat.data[:].max() + 100) #KT: actively changing y axis
 
         #KT: Updating Fluvial Seidment Flux
         ph_fluv.set_ydata(Qs.dat.data[:])
-        ax[5].set_ylim(0,Qs.dat.data[:].max() + 50 ) #KT: actively changing y axis
+        ax[5].set_ylim(0,Qs.dat.data[:].max() + 100 ) #KT: actively changing y axis
+
+        #KT: Updating SMB Plot
+        ph_SMB.set_ydata(surf.dat.data[:])
 
         #KT: Velocities over time, extracted from 50 indices behind terminus
         notNAN = np.where(np.isfinite(us_))[0]
