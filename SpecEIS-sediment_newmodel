@@ -487,32 +487,41 @@ udef0.vector().apply("insert")
 ###############################################################################
 t_end = 30000
 
-plt.ion()
+plt.ioff()
 fig, ax = plt.subplots(nrows=6,sharex=True,figsize=(10,12))
-fig_v, ax_v = plt.subplots(figsize=(10, 12))
+plt.close(fig)
+
+plt.ion()
+fig_disp,ax_disp = plt.subplots()
+fig_v, ax_v = plt.subplots(nrows = 2, figsize=(10, 12))
 fig_smb, ax_smb = plt.subplots(figsize = (10,12))
+plt.show()
 
-#Plotting Glacier Profile
+#KT: Plotting Glacier Profile - display
 xx = df.interpolate(x,Q_dg).dat.data[:]
+ph_bed1, = ax_disp.plot(xx,B0.dat.data[:],'k-')
+base1 = df.interpolate(Base,Q_dg)
+ph_base1, = ax_disp.plot(xx,base1.dat.data[:],'b-')
+surf1 = df.interpolate(S,Q_dg)
+ph_surf1, = ax_disp.plot(xx,surf1.dat.data[:],'c-')
+sed1 = df.interpolate(B0 + h_s0,Q_dg)
+ph_sed1, = ax_disp.plot(xx,sed1.dat.data[:],'g-')
+ax_disp.plot(xx,np.zeros_like(xx),'b:',lw=0.5)
+ax_disp.set_ylabel('Elevation (m)')
+ax_disp.legend(loc = 'center right', fontsize = 10)
 
+#Plotting Glacier Profile - animation
+xx = df.interpolate(x,Q_dg).dat.data[:]
 ph_bed, = ax[0].plot(xx,B0.dat.data[:],'k-')
-
 base = df.interpolate(Base,Q_dg)
 ph_base, = ax[0].plot(xx,base.dat.data[:],'b-')
-
 surf = df.interpolate(S,Q_dg)
 ph_surf, = ax[0].plot(xx,surf.dat.data[:],'c-')
-
 sed = df.interpolate(B0 + h_s0,Q_dg)
 ph_sed, = ax[0].plot(xx,sed.dat.data[:],'g-')
-
 ax[0].plot(xx,np.zeros_like(xx),'b:',lw=0.5)
 ax[0].set_ylabel('Elevation (m)')
 ax[0].legend(loc = 'center right', fontsize = 10)
-
-
-#KT: SMB PLOT
-# ph_SMB, = ax_smb.plot(adot, surf)
 
 #KT: Grounding Line Plot
 ph_grounded, = ax[1].plot(xx, np.zeros_like(xx), 'k-')
@@ -552,18 +561,33 @@ ax[5].set_ylim(0,500)
 ax[5].set_xlabel('Distance (m)')
 
 #KT: Velocity over time plot initialization
-ph_surface, = ax_v.plot([], [], 'r-', label="Surface Velocity (max)")
-ph_basal, = ax_v.plot([], [], 'g:', label="Basal Velocity (max)")
-ax_v.set_xlim(0, 100)  
-ax_v.set_ylim(0, 100)    
-ax_v.set_xlabel("Time (years)")
-ax_v.set_ylabel("Velocity (m/yr)")
-ax_v.set_title("Velocity Evolution Over Time")
-ax_v.legend(loc = 'center right', fontsize = 10)
+ph_surface, = ax_v[0].plot([], [], 'r-', label="Surface Velocity (max)")
+ph_basal, = ax_v[0].plot([], [], 'g:', label="Basal Velocity (max)")
+ax_v[0].set_xlim(0, t_end)  
+ax_v[0].set_ylim(0, 100)    
+ax_v[0].set_xlabel("Time (years)")
+ax_v[0].set_ylabel("Velocity (m/yr)")
+ax_v[0].set_title("Velocity Evolution Over Time")
+ax_v[0].legend(loc = 'center right', fontsize = 10)
+
+#KT: GL over time plot initialization
+GL_dists = []
+ph_GLtime, = ax_v[1].plot([],[],'b-')
+ax_v[1]. set_xlim(0,t_end)
+ax_v[1].set_ylim(0, 100)   
+ax_v[1].set_xlabel("Time (years)")
+ax_v[1].set_ylabel("GL Distance")
+ax_v[1].set_title("GL POsition Over Time")
+
 
 #KT: SMB Plot
 SMB = df.interpolate(adot,Q_dg)
-ph_SMB, = ax_smb.plot(SMB.dat.data[:], surf.dat.data[:], 'b-')
+x_smb = SMB.dat.data[:]
+y_smb = surf.dat.data[:]
+# ELA = np.interp(0, SMB.dat.data[:], surf.dat.data[:])
+ph_SMB, = ax_smb.plot(x_smb, y_smb , 'b-')
+ax_smb.axvline(x = 0, color='gray', linestyle='--')
+#ela_line = ax_smb.axhline(y= 0,color = "pink", linestyle ="--")
 ax_smb.invert_xaxis()
 ax_smb.set_ylabel("Glacier Surface (m)")
 ax_smb.set_xlabel("SMB (m/yr)")
@@ -586,6 +610,7 @@ ub_dict = {}        # Dictionary of basal velocities
 Hs_dict = {}        # Dictionary of sediment thickness
 GL_dict = {}        # Dictionary of grounding line location
 Qs_dict = {}        # Dictionary of fluvial sediment flux
+DATA_dict ={}
 
 #KT: Grabbing timestamp at start of simulation, should match with simulation run time
 start_time = datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
@@ -595,7 +620,7 @@ frames = []
 def update_anim(frame):
     "updates the plots for FuncAnimation"
     t = time_dict[frame]
-    time_text.set_text(f'Time: {t:.2f} years')
+    time_text1.set_text(f'Time: {t:.2f} years')
 
     ph_bed.set_ydata(bed_dict[t])
     ph_base.set_ydata(base_dict[t])
@@ -609,7 +634,7 @@ def update_anim(frame):
     ph_hs.set_ydata(Hs_dict[t])
     ph_fluv.set_ydata(Qs_dict[t])
 
-    return [time_text, ph_bed, ph_base, ph_surf, ph_sed, ph_grounded, ph_ub, ph_us, ph_thick, ph_hs, ph_fluv]
+    return [time_text1, ph_bed, ph_base, ph_surf, ph_sed, ph_grounded, ph_ub, ph_us, ph_thick, ph_hs, ph_fluv]
 
 
 ######### KT: OUTPUT DIRECTORIES & FILES FOR STORING SIMULATION DATA ################################
@@ -618,13 +643,17 @@ def update_anim(frame):
 anim_crash = "/home/kayatroyer/Repositories/brinkmodeltest/Output/Simulation_Animations/Crashes"
 anim_rupt = "/home/kayatroyer/Repositories/brinkmodeltest/Output/Simulation_Animations/Interrupts"
 full_anim = "/home/kayatroyer/Repositories/brinkmodeltest/Output/Simulation_Animations/SuccessfulRuns"
+vel_path = "/home/kayatroyer/Repositories/brinkmodeltest/Output/Velocity Plots"
 
 success_filename = os.path.join(full_anim,f"FullModelRun_{start_time}.mp4")
 crash_filename = os.path.join(anim_crash,f"CrashedModelRun_{start_time}.mp4")
 interrupt_filename = os.path.join(anim_rupt,f"InterruptedModelRun_{start_time}.mp4")
 
+vel_file = os.path.join(vel_path, f"VelocityPlot_{start_time}.jpg")
+
 #KT: Dictionary Folder
 dicts_folder = "/home/kayatroyer/Repositories/brinkmodeltest/Output/Variable_Dictionaries"
+dict_filename = os.path.join(dicts_folder, f"DATA_Dictionary_{start_time}.pkl.gz")
 
 #KT: State Variable Folder 
 state_folder = "/home/kayatroyer/Repositories/brinkmodeltest/Output/State_Variables" 
@@ -637,12 +666,19 @@ os.makedirs(indiv_run_path, exist_ok=True)
 #KT: initializing checkpoint files in appropriate directories
 half_checkpoint_path = os.path.join(indiv_run_path, "checkpoint_halfway.h5")
 final_checkpoint_path = os.path.join(indiv_run_path, "checkpoint_final.h5")
-# half_checkpoint = CheckpointFile(half_checkpoint_path, "w")
-# final_checkpoint = CheckpointFile(final_checkpoint_path, "w")
 
+# KT: loading data int pickle
+# def load_existing_data():
+#     with gzip.open(dict_filename, 'wt',compresslevel=3) as f:
+#         json.dump(DATA_dict,f)
+#     except (FileNotFoundError, EOFError):       #I dont really want this
+#         return {}
+#         print("STOP! PICKLE LOADING ISNT WORKING")
+    
 #KT: In event of interrupt, simulation movie saves
 def interrupt(signal, frame):
     print("Interrupt signal received. Saving animation before shutdown...")
+    fig_v.savefig(vel_file)
     ani_rupt = animation.FuncAnimation(fig, update_anim, frames = len(frames), interval=100, blit=True)
     ani_rupt.save(interrupt_filename, writer="ffmpeg", fps=10, dpi=150)  # Save the crashed animation
     print(f"Interrupted, Animation saved to: {interrupt}")
@@ -655,7 +691,10 @@ signal.signal(signal.SIGINT, interrupt)   # Catches `Ctrl+C`
 ############################  Run Model  #####################################
 ##############################################################################
 #KT: Time counter display for model run
-time_text = ax[0].text(0.70,0.90,'', transform=ax[0].transAxes, fontsize = 12) #i added this
+time_text1 = ax[0].text(0.70,0.90,'', transform=ax[0].transAxes, fontsize = 12)
+time_text2 = ax_disp.text(0.70,0.90,'', fontsize = 12)
+time_text3 = ax_smb.text(0.70,0.90,'', fontsize = 12)
+time_text4 = ax_v[0].text(0.70,0.90,'', fontsize = 12)
 
 #KT: stores time values every 10 time steps
 #velocity_interval = 10  # Update every 10 timesteps
@@ -720,15 +759,16 @@ while t<t_end:
 
 
         #KT: Time text for plots
-        time_text.set_text(f'Time: {t:.2f} years') 
+        time_text1.set_text(f'Time: {t:.2f} years') 
+        time_text2.set_text(f'Time: {t:.2f} years') 
+        time_text3.set_text(f'Time: {t:.2f} years') 
+        time_text4.set_text(f'Time: {t:.2f} years') 
+
 
         nan_idx = np.where(np.isnan(time_values))[0]  #this adds times to the time_values as it runs through the loop and replaces nans
         if len(nan_idx) > 0:  
             time_values[nan_idx[0]] = t      
 
-        #KT:SMB Plot
-        # ax_smb.set_ydata(surf)
-        # ax_smb.set_xdata(adot)
 
         #KT: Grounding Line Plot
         grounded = df.interpolate(floating,Q_dg)
@@ -751,11 +791,17 @@ while t<t_end:
         Qs = df.interpolate(Qs0, Q_dg)
         thick = df.interpolate(H0,Q_dg)
 
-        #Updating Data on Main Glacier Plot
+        #Updating Data on Main Glacier Plot - animation
         ph_bed.set_ydata(B0.dat.data[:])
         ph_base.set_ydata(base.dat.data[:])
         ph_surf.set_ydata(surf.dat.data[:])
         ph_sed.set_ydata(sed.dat.data[:])
+
+        #Updating Data on Main Glacier Plot - display
+        ph_bed1.set_ydata(B0.dat.data[:])
+        ph_base1.set_ydata(base.dat.data[:])
+        ph_surf1.set_ydata(surf.dat.data[:])
+        ph_sed1.set_ydata(sed.dat.data[:])
 
         #Updating basal and surface speeds vs distance
         ph_us.set_ydata(us_)
@@ -780,8 +826,12 @@ while t<t_end:
 
         #KT: Updating SMB Plot
         ph_SMB.set_ydata(surf.dat.data[:])
+        # ELA = np.interp(0,SMB.dat.data[:], surf.dat.data[:])
+        # ela_line.set_ydata(ELA)
+        fig_smb.canvas.draw()
+        #ax_smb.axhline(y=ELA, color='pink', linestyle='--')
 
-        #KT: Velocities over time, extracted from 50 indices behind terminus
+        #KT: Velocities and GL over time, velocity extracted from 50 indices behind terminus
         notNAN = np.where(np.isfinite(us_))[0]
 
         if len(notNAN) > 0:
@@ -804,20 +854,35 @@ while t<t_end:
         time_values.append(t)
         surface_velocity.append(term_usvel)  
         basal_velocity.append(term_ubvel)
-        ph_surface.set_xdata(time_values)
-        ph_basal.set_xdata(time_values)
-        ph_surface.set_ydata(surface_velocity)
-        ph_basal.set_ydata(basal_velocity)
 
-        ax_v.set_xlim(0,t_end)      
+
+        if counter % 10 == 0:
+            # for t in range(len(time_values)):
+            #     gl_index = np.where(np.diff(g_) == 1)[0]
+            #     gl_pos = xx[gl_index]
+            #     GL_dists.append(gl_pos)
+
+                
+            ph_surface.set_xdata(time_values)
+            ph_basal.set_xdata(time_values)
+            ph_surface.set_ydata(surface_velocity)
+            ph_basal.set_ydata(basal_velocity)
+            # ph_GLtime.set_ydata(GL_dists)    
+            fig_v.canvas.draw()
+
+        ax_v[0].set_xlim(0,100)      
+        ax_v[1].set_xlim(0,100)      
+
         # if t > ax_v.get_xlim()[1]:
         #     ax_v.set_xlim(0, t + 100)  
 
-        if max(surface_velocity + basal_velocity) > ax_v.get_ylim()[1]:
-            ax_v.set_ylim(0, max(surface_velocity + basal_velocity) + 50)  # Extend velocity axis
+        if max(surface_velocity + basal_velocity) > ax_v[0].get_ylim()[1]:
+            ax_v[0].set_ylim(0, max(surface_velocity + basal_velocity) + 50)  # Extend velocity axis
+
 
         # Redraw the figure
         fig_v.canvas.draw()
+        fig_disp.canvas.draw()
         plt.show()
 
         ##################### DONE PLOTTING, START STORING VARIABLES #####################
@@ -840,23 +905,35 @@ while t<t_end:
         Qs_dict[t] = Qs.dat.data[:]        
 
         #KT: Loading main data dictionary with dictionaries
-        DATA_dict = {
-            'counter_dict': counter_dict,
-            'bed_dict': bed_dict,
-            'base_dict': base_dict,
-            'surf_dict': surf_dict,
-            'sed_dict': sed_dict,
-            'H_dict': H_dict,
-            'us_dict': us_dict,
-            'ub_dict': ub_dict,
-            'Hs_dict': Hs_dict,
-            'GL_dict': GL_dict,
-            'Qs_dict': Qs_dict
-        }
+        if counter % 1000 == 0:
+            DATA_dict.update({
+                'counter_dict': counter_dict,
+                'bed_dict': bed_dict,
+                'base_dict': base_dict,
+                'surf_dict': surf_dict,
+                'sed_dict': sed_dict,
+                'H_dict': H_dict,
+                'us_dict': us_dict,
+                'ub_dict': ub_dict,
+                'Hs_dict': Hs_dict,
+                'GL_dict': GL_dict,
+                'Qs_dict': Qs_dict
+            })
+
          #KT: Pickling Data Dictionary
-        dict_filename = os.path.join(dicts_folder, f"DATA_Dictionary_{start_time}.pkl")
-        with gzip.open(dict_filename, 'wb') as f:
-            pickle.dump(DATA_dict,f)
+        if counter % 2000 == 0:
+            if os.path.exists(dict_filename):
+                with gzip.open(dict_filename, 'rb', compresslevel=3) as f:
+                    existing_data = pickle.load(f)
+            else:
+                existing_data = {}
+            
+            existing_data.update(DATA_dict)
+
+            with gzip.open(dict_filename, 'wb', compresslevel=3) as f:
+                pickle.dump(existing_data, f)
+            
+            DATA_dict.clear()
         
         #KT: Storing to HDF5 file 
         half = t_end//2
@@ -904,6 +981,9 @@ while t<t_end:
     if (dt_float < 1e-10): # Things have really gone off the rails and the simulation is shutting down
         print("model stalling, time step approaching zero. Saving animation before shutdown...")
         
+        fig_v.savefig(vel_file)
+
+
         ani_break = animation.FuncAnimation(fig, update_anim, frames = len(frames), interval=100, blit=True) #KT: added
         ani_break.save(crash_filename, writer="ffmpeg", fps=10, dpi=150)    #KT: added
 
@@ -920,6 +1000,8 @@ if t >= t_end-5:
     print(f"Successful Model Run Animation saved to: {success_filename}")
 
     print("Simulation completed successfully. Saving final state variables... ")
+
+    fig_v.savefig(vel_file)
 
     with open(os.path.join(indiv_run_path, 'time_dict_final.json'), 'w') as f:
                 json.dump(time_dict, f)

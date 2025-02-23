@@ -32,7 +32,7 @@ def full_quad(order):
 sigmoid = lambda z: 1./(1+df.exp(-z))
 
 L = 45000.                  # Characteristic domain length
-#L = 90000
+#L = 90000  
 spy = 60**2*24*365          
 thklim = 1.0                # Minimum Ice Thickness
 
