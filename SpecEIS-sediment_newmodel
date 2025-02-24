@@ -485,7 +485,7 @@ udef0.vector().apply("insert")
 ###############################################################################
 #########################  Animation Init.  ###################################
 ###############################################################################
-t_end = 30000
+t_end = 10000
 
 plt.ioff()
 fig, ax = plt.subplots(nrows=6,sharex=True,figsize=(10,12))
@@ -563,7 +563,7 @@ ax[5].set_xlabel('Distance (m)')
 #KT: Velocity over time plot initialization
 ph_surface, = ax_v[0].plot([], [], 'r-', label="Surface Velocity (max)")
 ph_basal, = ax_v[0].plot([], [], 'g:', label="Basal Velocity (max)")
-ax_v[0].set_xlim(0, t_end)  
+ax_v[0].set_xlim(0, 10000)  
 ax_v[0].set_ylim(0, 100)    
 ax_v[0].set_xlabel("Time (years)")
 ax_v[0].set_ylabel("Velocity (m/yr)")
@@ -571,13 +571,13 @@ ax_v[0].set_title("Velocity Evolution Over Time")
 ax_v[0].legend(loc = 'center right', fontsize = 10)
 
 #KT: GL over time plot initialization
-GL_dists = []
-ph_GLtime, = ax_v[1].plot([],[],'b-')
-ax_v[1]. set_xlim(0,t_end)
-ax_v[1].set_ylim(0, 100)   
-ax_v[1].set_xlabel("Time (years)")
-ax_v[1].set_ylabel("GL Distance")
-ax_v[1].set_title("GL POsition Over Time")
+# GL_dists = []
+# ph_GLtime, = ax_v[1].plot([],[],'b-')
+# ax_v[1]. set_xlim(0,10000)
+# ax_v[1].set_ylim(0, 100)   
+# ax_v[1].set_xlabel("Time (years)")
+# ax_v[1].set_ylabel("GL Distance")
+# ax_v[1].set_title("GL POsition Over Time")
 
 
 #KT: SMB Plot
@@ -630,9 +630,18 @@ def update_anim(frame):
     ph_grounded.set_ydata(GL_dict[t])
     ph_us.set_ydata(us_dict[t])
     ph_ub.set_ydata(ub_dict[t])
+    us_filtered = us_[np.isfinite(us_)]  
+    if len(us_filtered) > 0:
+        ax[3].set_ylim(0, us_filtered.max() + 100)
+
     ph_thick.set_ydata(H_dict[t])
+    ax[2].set_ylim(0,thick.dat.data[:].max()+100)   
     ph_hs.set_ydata(Hs_dict[t])
+    ph_hs.set_ydata(hs.dat.data[:])
+    ax[4].set_ylim(0,hs.dat.data[:].max() + 100)
     ph_fluv.set_ydata(Qs_dict[t])
+    ph_fluv.set_ydata(Qs.dat.data[:])
+    ax[5].set_ylim(0,Qs.dat.data[:].max() + 100 )
 
     return [time_text1, ph_bed, ph_base, ph_surf, ph_sed, ph_grounded, ph_ub, ph_us, ph_thick, ph_hs, ph_fluv]
 
@@ -701,7 +710,7 @@ time_text4 = ax_v[0].text(0.70,0.90,'', fontsize = 12)
 
 # Time interval
 t = 0.0
-t_end = 30000
+t_end = 10000
 
 counter = 0
 
@@ -870,14 +879,14 @@ while t<t_end:
             # ph_GLtime.set_ydata(GL_dists)    
             fig_v.canvas.draw()
 
-        ax_v[0].set_xlim(0,100)      
-        ax_v[1].set_xlim(0,100)      
+        ax_v[0].set_xlim(0,10000)      
+        ax_v[1].set_xlim(0,10000)      
 
         # if t > ax_v.get_xlim()[1]:
         #     ax_v.set_xlim(0, t + 100)  
 
         if max(surface_velocity + basal_velocity) > ax_v[0].get_ylim()[1]:
-            ax_v[0].set_ylim(0, max(surface_velocity + basal_velocity) + 50)  # Extend velocity axis
+            ax_v[0].set_ylim(0, max(surface_velocity + basal_velocity) + 100)  # Extend velocity axis
 
 
         # Redraw the figure
