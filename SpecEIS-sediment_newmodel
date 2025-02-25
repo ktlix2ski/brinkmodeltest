@@ -40,8 +40,8 @@ def full_quad(order):
 # Logistic function
 sigmoid = lambda z: 1./(1+df.exp(-z))
 
-L = 45000.                  # OG: Characteristic domain length
-#L = 55000                    #KT: Leconte L
+#L = 45000.                  # OG: Characteristic domain length
+L = 55000                    #KT: Leconte L
 spy = 60**2*24*365          
 thklim = 1.0                # Minimum Ice Thickness
 
@@ -53,12 +53,12 @@ amax = df.Constant(8.0)        # Maximum smb
 
 c = 2.0                       # Coefficient of exponential decay
 
-amp = 50.0                   # Amplitude of sinusoidal topography 
+amp = 0.0                   # Amplitude of sinusoidal topography 
 
 rho = rho_i = 917.                  # Ice density
 rho_w = 1029.0              # Seawater density
 rho_s = 1600.0              # Sediment density
-rho_r = 2750.0              # Bedrock density
+rho_r = 2650.0              # Bedrock density
 
 La = 3.35e5                 #KT: latent heat of melting?
 
@@ -84,7 +84,7 @@ k = df.Constant(0.7)           # Fraction of overburden defining water pressure
 scf = df.Constant(0.2)          # Fraction of floating ice removed per year
 
 # k_diff = df.Constant(20)       # Sediment diffusivity
-k_diff = df.Constant(20)       # Paper code Sediment diffusivity
+k_diff = df.Constant(20)       
 h_ref = df.Constant(10)        # Thickness at which diffusivity stops increasing: sediment diffusive fluxes need to go
                                # to zero as sediment thickness goes to zero, which implies that the flux should be 
                                # proportional to the sed thickness - however, we also don't want thicker moraines to
@@ -489,26 +489,39 @@ t_end = 10000
 
 plt.ioff()
 fig, ax = plt.subplots(nrows=6,sharex=True,figsize=(10,12))
+fig_smb, ax_smb = plt.subplots(figsize = (10,12))
+fig_v, ax_v = plt.subplots(nrows = 2, figsize=(10, 12))
 plt.close(fig)
+plt.close(fig_smb)
+plt.close(fig_v)
 
 plt.ion()
-fig_disp,ax_disp = plt.subplots()
-fig_v, ax_v = plt.subplots(nrows = 2, figsize=(10, 12))
-fig_smb, ax_smb = plt.subplots(figsize = (10,12))
+fig_disp,ax_disp = plt.subplots(nrows = 2, sharex = False)
 plt.show()
 
-#KT: Plotting Glacier Profile - display
+#KT: Plotting Glacier Profile & SMB - display
 xx = df.interpolate(x,Q_dg).dat.data[:]
-ph_bed1, = ax_disp.plot(xx,B0.dat.data[:],'k-')
+ph_bed1, = ax_disp[0].plot(xx,B0.dat.data[:],'k-')
 base1 = df.interpolate(Base,Q_dg)
-ph_base1, = ax_disp.plot(xx,base1.dat.data[:],'b-')
+ph_base1, = ax_disp[0].plot(xx,base1.dat.data[:],'b-')
 surf1 = df.interpolate(S,Q_dg)
-ph_surf1, = ax_disp.plot(xx,surf1.dat.data[:],'c-')
+ph_surf1, = ax_disp[0].plot(xx,surf1.dat.data[:],'c-')
 sed1 = df.interpolate(B0 + h_s0,Q_dg)
-ph_sed1, = ax_disp.plot(xx,sed1.dat.data[:],'g-')
-ax_disp.plot(xx,np.zeros_like(xx),'b:',lw=0.5)
-ax_disp.set_ylabel('Elevation (m)')
-ax_disp.legend(loc = 'center right', fontsize = 10)
+ph_sed1, = ax_disp[0].plot(xx,sed1.dat.data[:],'g-')
+ax_disp[0].plot(xx,np.zeros_like(xx),'b:',lw=0.5)
+ax_disp[0].set_ylabel('Elevation (m)')
+ax_disp[0].legend(loc = 'center right', fontsize = 10)
+
+SMB = df.interpolate(adot,Q_dg)
+x_smb = SMB.dat.data[:]
+y_smb = surf1.dat.data[:]
+ph_SMB_disp, = ax_disp[1].plot(x_smb, y_smb , 'b-')
+ax_disp[1].axvline(x = 0, color='gray', linestyle='--')
+#ela_line = ax_smb.axhline(y= 0,color = "pink", linestyle ="--")
+ax_disp[1].invert_xaxis()
+ax_disp[1].set_ylabel("Glacier Surface (m)")
+ax_disp[1].set_xlabel("SMB (m/yr)")
+
 
 #Plotting Glacier Profile - animation
 xx = df.interpolate(x,Q_dg).dat.data[:]
@@ -635,13 +648,13 @@ def update_anim(frame):
         ax[3].set_ylim(0, us_filtered.max() + 100)
 
     ph_thick.set_ydata(H_dict[t])
-    ax[2].set_ylim(0,thick.dat.data[:].max()+100)   
+    ax[2].set_ylim(0,thick.dat.data[:].max()+ 100)   
     ph_hs.set_ydata(Hs_dict[t])
-    ph_hs.set_ydata(hs.dat.data[:])
+    # ph_hs.set_ydata(hs.dat.data[:])
     ax[4].set_ylim(0,hs.dat.data[:].max() + 100)
     ph_fluv.set_ydata(Qs_dict[t])
-    ph_fluv.set_ydata(Qs.dat.data[:])
-    ax[5].set_ylim(0,Qs.dat.data[:].max() + 100 )
+    # ph_fluv.set_ydata(Qs.dat.data[:])
+    ax[5].set_ylim(0,Qs.dat.data[:].max() + 100)
 
     return [time_text1, ph_bed, ph_base, ph_surf, ph_sed, ph_grounded, ph_ub, ph_us, ph_thick, ph_hs, ph_fluv]
 
@@ -701,7 +714,7 @@ signal.signal(signal.SIGINT, interrupt)   # Catches `Ctrl+C`
 ##############################################################################
 #KT: Time counter display for model run
 time_text1 = ax[0].text(0.70,0.90,'', transform=ax[0].transAxes, fontsize = 12)
-time_text2 = ax_disp.text(0.70,0.90,'', fontsize = 12)
+time_text2 = ax_disp[0].text(0.70,0.90,'', fontsize = 12)
 time_text3 = ax_smb.text(0.70,0.90,'', fontsize = 12)
 time_text4 = ax_v[0].text(0.70,0.90,'', fontsize = 12)
 
@@ -835,6 +848,7 @@ while t<t_end:
 
         #KT: Updating SMB Plot
         ph_SMB.set_ydata(surf.dat.data[:])
+        ph_SMB_disp.set_ydata(surf.dat.data[:])
         # ELA = np.interp(0,SMB.dat.data[:], surf.dat.data[:])
         # ela_line.set_ydata(ELA)
         fig_smb.canvas.draw()
@@ -877,7 +891,6 @@ while t<t_end:
             ph_surface.set_ydata(surface_velocity)
             ph_basal.set_ydata(basal_velocity)
             # ph_GLtime.set_ydata(GL_dists)    
-            fig_v.canvas.draw()
 
         ax_v[0].set_xlim(0,10000)      
         ax_v[1].set_xlim(0,10000)      
@@ -890,9 +903,8 @@ while t<t_end:
 
 
         # Redraw the figure
-        fig_v.canvas.draw()
-        fig_disp.canvas.draw()
-        plt.show()
+        if counter % 10 == 0:
+            fig_disp.canvas.draw()
 
         ##################### DONE PLOTTING, START STORING VARIABLES #####################
 
@@ -902,16 +914,18 @@ while t<t_end:
         #KT: Load Dictionaries with values 
         time_dict[counter] = t
         counter_dict[t] = counter 
-        bed_dict[t] = B0.dat.data[:]
-        base_dict[t] = base.dat.data[:]
-        surf_dict[t] = surf.dat.data[:]
-        sed_dict[t] = sed.dat.data[:]
-        H_dict[t] = thick.dat.data[:]         
-        us_dict[t] = us_           
-        ub_dict[t] = ub_        
-        Hs_dict[t] = hs.dat.data[:]        
-        GL_dict[t] = g_             
-        Qs_dict[t] = Qs.dat.data[:]        
+
+        if counter % 2 == 0:
+            bed_dict[t] = B0.dat.data[:]
+            base_dict[t] = base.dat.data[:]
+            surf_dict[t] = surf.dat.data[:]
+            sed_dict[t] = sed.dat.data[:]
+            H_dict[t] = thick.dat.data[:]         
+            us_dict[t] = us_           
+            ub_dict[t] = ub_        
+            Hs_dict[t] = hs.dat.data[:]        
+            GL_dict[t] = g_             
+            Qs_dict[t] = Qs.dat.data[:]        
 
         #KT: Loading main data dictionary with dictionaries
         if counter % 1000 == 0:
