@@ -53,7 +53,7 @@ amax = df.Constant(8.0)        # Maximum smb
 
 c = 2.0                       # Coefficient of exponential decay
 
-amp = 0.0                   # Amplitude of sinusoidal topography 
+amp = 100                   # Amplitude of sinusoidal topography 
 
 rho = rho_i = 917.                  # Ice density
 rho_w = 1029.0              # Seawater density
@@ -487,14 +487,14 @@ udef0.vector().apply("insert")
 ###############################################################################
 t_end = 10000
 
+#KT: Plots for saving only 
 plt.ioff()
 fig, ax = plt.subplots(nrows=6,sharex=True,figsize=(10,12))
-fig_smb, ax_smb = plt.subplots(figsize = (10,12))
-fig_v, ax_v = plt.subplots(nrows = 2, figsize=(10, 12))
+fig_v, ax_v = plt.subplots(figsize=(10, 12))
 plt.close(fig)
-plt.close(fig_smb)
 plt.close(fig_v)
 
+#KT: one plot displayed
 plt.ion()
 fig_disp,ax_disp = plt.subplots(nrows = 2, sharex = False)
 plt.show()
@@ -574,36 +574,27 @@ ax[5].set_ylim(0,500)
 ax[5].set_xlabel('Distance (m)')
 
 #KT: Velocity over time plot initialization
-ph_surface, = ax_v[0].plot([], [], 'r-', label="Surface Velocity (max)")
-ph_basal, = ax_v[0].plot([], [], 'g:', label="Basal Velocity (max)")
-ax_v[0].set_xlim(0, 10000)  
-ax_v[0].set_ylim(0, 100)    
-ax_v[0].set_xlabel("Time (years)")
-ax_v[0].set_ylabel("Velocity (m/yr)")
-ax_v[0].set_title("Velocity Evolution Over Time")
-ax_v[0].legend(loc = 'center right', fontsize = 10)
-
-#KT: GL over time plot initialization
-# GL_dists = []
-# ph_GLtime, = ax_v[1].plot([],[],'b-')
-# ax_v[1]. set_xlim(0,10000)
-# ax_v[1].set_ylim(0, 100)   
-# ax_v[1].set_xlabel("Time (years)")
-# ax_v[1].set_ylabel("GL Distance")
-# ax_v[1].set_title("GL POsition Over Time")
+ph_surface, = ax_v.plot([], [], 'r-', label="Surface Velocity (max)")
+ph_basal, = ax_v.plot([], [], 'g:', label="Basal Velocity (max)")
+ax_v.set_xlim(0, 10000)  
+ax_v.set_ylim(0, 100)    
+ax_v.set_xlabel("Time (years)")
+ax_v.set_ylabel("Velocity (m/yr)")
+ax_v.set_title("Velocity Evolution Over Time")
+ax_v.legend(loc = 'center right', fontsize = 10)
 
 
 #KT: SMB Plot
-SMB = df.interpolate(adot,Q_dg)
-x_smb = SMB.dat.data[:]
-y_smb = surf.dat.data[:]
-# ELA = np.interp(0, SMB.dat.data[:], surf.dat.data[:])
-ph_SMB, = ax_smb.plot(x_smb, y_smb , 'b-')
-ax_smb.axvline(x = 0, color='gray', linestyle='--')
-#ela_line = ax_smb.axhline(y= 0,color = "pink", linestyle ="--")
-ax_smb.invert_xaxis()
-ax_smb.set_ylabel("Glacier Surface (m)")
-ax_smb.set_xlabel("SMB (m/yr)")
+# SMB = df.interpolate(adot,Q_dg)
+# x_smb = SMB.dat.data[:]
+# y_smb = surf.dat.data[:]
+# # ELA = np.interp(0, SMB.dat.data[:], surf.dat.data[:])
+# ph_SMB, = ax_smb.plot(x_smb, y_smb , 'b-')
+# ax_smb.axvline(x = 0, color='gray', linestyle='--')
+# #ela_line = ax_smb.axhline(y= 0,color = "pink", linestyle ="--")
+# ax_smb.invert_xaxis()
+# ax_smb.set_ylabel("Glacier Surface (m)")
+# ax_smb.set_xlabel("SMB (m/yr)")
 
 #KT: Storing values over time 
 time_values = []  
@@ -643,18 +634,21 @@ def update_anim(frame):
     ph_grounded.set_ydata(GL_dict[t])
     ph_us.set_ydata(us_dict[t])
     ph_ub.set_ydata(ub_dict[t])
-    us_filtered = us_[np.isfinite(us_)]  
-    if len(us_filtered) > 0:
-        ax[3].set_ylim(0, us_filtered.max() + 100)
+    ax[3].set_ylim(0, max(us_dict[t]) + 100)
 
     ph_thick.set_ydata(H_dict[t])
-    ax[2].set_ylim(0,thick.dat.data[:].max()+ 100)   
+    ax[2].set_ylim(0, max(H_dict[t]) + 100)
     ph_hs.set_ydata(Hs_dict[t])
-    # ph_hs.set_ydata(hs.dat.data[:])
-    ax[4].set_ylim(0,hs.dat.data[:].max() + 100)
+    ax[4].set_ylim(0, max(Hs_dict[t]) + 100)
     ph_fluv.set_ydata(Qs_dict[t])
-    # ph_fluv.set_ydata(Qs.dat.data[:])
-    ax[5].set_ylim(0,Qs.dat.data[:].max() + 100)
+    ax[5].set_ylim(0, max(Qs_dict[t]) + 100)
+
+    for a in ax:
+        a.relim()  
+        a.autoscale_view(True, True, True) 
+
+    fig.canvas.draw()
+    fig.canvas.flush_events()
 
     return [time_text1, ph_bed, ph_base, ph_surf, ph_sed, ph_grounded, ph_ub, ph_us, ph_thick, ph_hs, ph_fluv]
 
@@ -701,7 +695,7 @@ final_checkpoint_path = os.path.join(indiv_run_path, "checkpoint_final.h5")
 def interrupt(signal, frame):
     print("Interrupt signal received. Saving animation before shutdown...")
     fig_v.savefig(vel_file)
-    ani_rupt = animation.FuncAnimation(fig, update_anim, frames = len(frames), interval=100, blit=True)
+    ani_rupt = animation.FuncAnimation(fig, update_anim, frames = len(frames), interval=100, blit=False)
     ani_rupt.save(interrupt_filename, writer="ffmpeg", fps=10, dpi=150)  # Save the crashed animation
     print(f"Interrupted, Animation saved to: {interrupt}")
     print("MODEL INTERRUPTED, NOT SAVING FINAL STATE VARIABLES")
@@ -715,8 +709,8 @@ signal.signal(signal.SIGINT, interrupt)   # Catches `Ctrl+C`
 #KT: Time counter display for model run
 time_text1 = ax[0].text(0.70,0.90,'', transform=ax[0].transAxes, fontsize = 12)
 time_text2 = ax_disp[0].text(0.70,0.90,'', fontsize = 12)
-time_text3 = ax_smb.text(0.70,0.90,'', fontsize = 12)
-time_text4 = ax_v[0].text(0.70,0.90,'', fontsize = 12)
+# time_text3 = ax_smb.text(0.70,0.90,'', fontsize = 12)
+time_text4 = ax_v.text(0.70,0.90,'', fontsize = 12)
 
 #KT: stores time values every 10 time steps
 #velocity_interval = 10  # Update every 10 timesteps
@@ -783,7 +777,6 @@ while t<t_end:
         #KT: Time text for plots
         time_text1.set_text(f'Time: {t:.2f} years') 
         time_text2.set_text(f'Time: {t:.2f} years') 
-        time_text3.set_text(f'Time: {t:.2f} years') 
         time_text4.set_text(f'Time: {t:.2f} years') 
 
 
@@ -814,10 +807,10 @@ while t<t_end:
         thick = df.interpolate(H0,Q_dg)
 
         #Updating Data on Main Glacier Plot - animation
-        ph_bed.set_ydata(B0.dat.data[:])
-        ph_base.set_ydata(base.dat.data[:])
-        ph_surf.set_ydata(surf.dat.data[:])
-        ph_sed.set_ydata(sed.dat.data[:])
+        # ph_bed.set_ydata(B0.dat.data[:])
+        # ph_base.set_ydata(base.dat.data[:])
+        # ph_surf.set_ydata(surf.dat.data[:])
+        # ph_sed.set_ydata(sed.dat.data[:])
 
         #Updating Data on Main Glacier Plot - display
         ph_bed1.set_ydata(B0.dat.data[:])
@@ -826,12 +819,12 @@ while t<t_end:
         ph_sed1.set_ydata(sed.dat.data[:])
 
         #Updating basal and surface speeds vs distance
-        ph_us.set_ydata(us_)
-        ph_ub.set_ydata(ub_)
+        # ph_us.set_ydata(us_)
+        # ph_ub.set_ydata(ub_)
 
         #KT: Updating Ice Thickness
-        ph_thick.set_ydata(thick.dat.data[:])
-        ax[2].set_ylim(0,thick.dat.data[:].max()+100)  #KT: actively changing y axis
+        # ph_thick.set_ydata(thick.dat.data[:])
+        # ax[2].set_ylim(0,thick.dat.data[:].max()+100)  #KT: actively changing y axis
 
         #KT: added to avoid issues with NaNs in the thklim 
         us_filtered = us_[np.isfinite(us_)]  
@@ -839,20 +832,16 @@ while t<t_end:
             ax[3].set_ylim(0, us_filtered.max() + 100) #KT: actively changing y axis
 
         #KT: Updating Sediment Thickness
-        ph_hs.set_ydata(hs.dat.data[:])
-        ax[4].set_ylim(0,hs.dat.data[:].max() + 100) #KT: actively changing y axis
+        # ph_hs.set_ydata(hs.dat.data[:])
+        # ax[4].set_ylim(0,hs.dat.data[:].max() + 100) #KT: actively changing y axis
 
         #KT: Updating Fluvial Seidment Flux
-        ph_fluv.set_ydata(Qs.dat.data[:])
-        ax[5].set_ylim(0,Qs.dat.data[:].max() + 100 ) #KT: actively changing y axis
+        # ph_fluv.set_ydata(Qs.dat.data[:])
+        # ax[5].set_ylim(0,Qs.dat.data[:].max() + 100 ) #KT: actively changing y axis
 
         #KT: Updating SMB Plot
-        ph_SMB.set_ydata(surf.dat.data[:])
+        # ph_SMB.set_ydata(surf.dat.data[:])
         ph_SMB_disp.set_ydata(surf.dat.data[:])
-        # ELA = np.interp(0,SMB.dat.data[:], surf.dat.data[:])
-        # ela_line.set_ydata(ELA)
-        fig_smb.canvas.draw()
-        #ax_smb.axhline(y=ELA, color='pink', linestyle='--')
 
         #KT: Velocities and GL over time, velocity extracted from 50 indices behind terminus
         notNAN = np.where(np.isfinite(us_))[0]
@@ -880,26 +869,18 @@ while t<t_end:
 
 
         if counter % 10 == 0:
-            # for t in range(len(time_values)):
-            #     gl_index = np.where(np.diff(g_) == 1)[0]
-            #     gl_pos = xx[gl_index]
-            #     GL_dists.append(gl_pos)
-
-                
             ph_surface.set_xdata(time_values)
             ph_basal.set_xdata(time_values)
             ph_surface.set_ydata(surface_velocity)
             ph_basal.set_ydata(basal_velocity)
-            # ph_GLtime.set_ydata(GL_dists)    
 
-        ax_v[0].set_xlim(0,10000)      
-        ax_v[1].set_xlim(0,10000)      
+        ax_v.set_xlim(0,10000)      
 
         # if t > ax_v.get_xlim()[1]:
         #     ax_v.set_xlim(0, t + 100)  
 
-        if max(surface_velocity + basal_velocity) > ax_v[0].get_ylim()[1]:
-            ax_v[0].set_ylim(0, max(surface_velocity + basal_velocity) + 100)  # Extend velocity axis
+        if max(surface_velocity + basal_velocity) > ax_v.get_ylim()[1]:
+            ax_v.set_ylim(0, max(surface_velocity + basal_velocity) + 100)  # Extend velocity axis
 
 
         # Redraw the figure
@@ -909,23 +890,23 @@ while t<t_end:
         ##################### DONE PLOTTING, START STORING VARIABLES #####################
 
         #KT: Update animation frames
-        frames.append(fig)
+        frames.append(counter)
 
         #KT: Load Dictionaries with values 
         time_dict[counter] = t
         counter_dict[t] = counter 
 
-        if counter % 2 == 0:
-            bed_dict[t] = B0.dat.data[:]
-            base_dict[t] = base.dat.data[:]
-            surf_dict[t] = surf.dat.data[:]
-            sed_dict[t] = sed.dat.data[:]
-            H_dict[t] = thick.dat.data[:]         
-            us_dict[t] = us_           
-            ub_dict[t] = ub_        
-            Hs_dict[t] = hs.dat.data[:]        
-            GL_dict[t] = g_             
-            Qs_dict[t] = Qs.dat.data[:]        
+        # if counter % 2 == 0:
+        bed_dict[t] = B0.dat.data[:]
+        base_dict[t] = base.dat.data[:]
+        surf_dict[t] = surf.dat.data[:]
+        sed_dict[t] = sed.dat.data[:]
+        H_dict[t] = thick.dat.data[:]         
+        us_dict[t] = us_           
+        ub_dict[t] = ub_        
+        Hs_dict[t] = hs.dat.data[:]        
+        GL_dict[t] = g_             
+        Qs_dict[t] = Qs.dat.data[:]        
 
         #KT: Loading main data dictionary with dictionaries
         if counter % 1000 == 0:
@@ -1007,7 +988,7 @@ while t<t_end:
         fig_v.savefig(vel_file)
 
 
-        ani_break = animation.FuncAnimation(fig, update_anim, frames = len(frames), interval=100, blit=True) #KT: added
+        ani_break = animation.FuncAnimation(fig, update_anim, frames = len(frames), interval=100, blit=False) #KT: added
         ani_break.save(crash_filename, writer="ffmpeg", fps=10, dpi=150)    #KT: added
 
         print(f"Crashed Animation saved to: {crash_filename}")  #KT: added
@@ -1016,7 +997,7 @@ while t<t_end:
 
 #KT: added this to do a final save of model stuff
 if t >= t_end-5:
-    ani = animation.FuncAnimation(fig, update_anim, frames = len(frames), interval=100, blit=True)
+    ani = animation.FuncAnimation(fig, update_anim, frames = len(frames), interval=100, blit=False)
     #if not ani._is_saving:  # Ensure animation isn't already being written
     ani.save(success_filename, writer="ffmpeg", fps=10, dpi=150)
 
