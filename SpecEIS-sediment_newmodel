@@ -3,7 +3,8 @@ os.environ["OMP_NUM_THREADS"] = '1'
 import matplotlib
 import firedrake as df
 import matplotlib
-matplotlib.use('TkAgg')
+matplotlib.use('TkAgg')     #uncoment for active plotting, does not work when remote 
+# matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib.animation import FuncAnimation
@@ -53,7 +54,7 @@ amax = df.Constant(8.0)        # Maximum smb
 
 c = 2.0                       # Coefficient of exponential decay
 
-amp = 100                   # Amplitude of sinusoidal topography 
+amp = 275                   # Amplitude of sinusoidal topography 
 
 rho = rho_i = 917.                  # Ice density
 rho_w = 1029.0              # Seawater density
@@ -491,10 +492,13 @@ t_end = 10000
 plt.ioff()
 fig, ax = plt.subplots(nrows=6,sharex=True,figsize=(10,12))
 fig_v, ax_v = plt.subplots(figsize=(10, 12))
+# fig_disp,ax_disp = plt.subplots(nrows = 2, sharex = False) #comment out to display
 plt.close(fig)
 plt.close(fig_v)
+# plt.close(fig_disp)
 
-#KT: one plot displayed
+
+#KT: one plot displayed, uncomment out to display
 plt.ion()
 fig_disp,ax_disp = plt.subplots(nrows = 2, sharex = False)
 plt.show()
@@ -666,6 +670,10 @@ crash_filename = os.path.join(anim_crash,f"CrashedModelRun_{start_time}.mp4")
 interrupt_filename = os.path.join(anim_rupt,f"InterruptedModelRun_{start_time}.mp4")
 
 vel_file = os.path.join(vel_path, f"VelocityPlot_{start_time}.jpg")
+
+#KT: comment out if you not saving at end and just using for display 
+display_path = "/home/kayatroyer/Repositories/brinkmodeltest/Output/diplay_plots"
+display_file = os.path.join(display_path,f"diplayplots_{start_time}.jpg")
 
 #KT: Dictionary Folder
 dicts_folder = "/home/kayatroyer/Repositories/brinkmodeltest/Output/Variable_Dictionaries"
@@ -884,7 +892,7 @@ while t<t_end:
 
 
         # Redraw the figure
-        if counter % 10 == 0:
+        if counter % 100 == 0:
             fig_disp.canvas.draw()
 
         ##################### DONE PLOTTING, START STORING VARIABLES #####################
@@ -1005,8 +1013,6 @@ if t >= t_end-5:
 
     print("Simulation completed successfully. Saving final state variables... ")
 
-    fig_v.savefig(vel_file)
-
     with open(os.path.join(indiv_run_path, 'time_dict_final.json'), 'w') as f:
                 json.dump(time_dict, f)
         
@@ -1015,3 +1021,8 @@ if t >= t_end-5:
         Check_Final.save_function(T, name = 'T_State_final')
         Check_Final.save_function(P, name = 'P_State_final')
         Check_Final.save_mesh(mesh)
+
+    fig_v.savefig(vel_file)
+    fig_disp.savefig(display_file)
+
+    print("ALL SAVING DONE!")
