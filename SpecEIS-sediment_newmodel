@@ -3,8 +3,8 @@ os.environ["OMP_NUM_THREADS"] = '1'
 import matplotlib
 import firedrake as df
 import matplotlib
-matplotlib.use('TkAgg')     #uncoment for active plotting, does not work when remote 
-# matplotlib.use('Agg')
+# matplotlib.use('TkAgg')     #uncoment for active plotting, does not work when remote 
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib.animation import FuncAnimation
@@ -49,12 +49,12 @@ thklim = 1.0                # Minimum Ice Thickness
 zmin = -300.0               # Minimum elevation
 zmax = 2200.0               # Maximum elevation from OG
 
-amin = df.Constant(-16.0)       # Minimum smb
+amin = df.Constant(-8.0)       # Minimum smb
 amax = df.Constant(8.0)        # Maximum smb
 
 c = 2.0                       # Coefficient of exponential decay
 
-amp = 275                   # Amplitude of sinusoidal topography 
+amp = 100                   # Amplitude of sinusoidal topography 
 
 rho = rho_i = 917.                  # Ice density
 rho_w = 1029.0              # Seawater density
@@ -492,16 +492,16 @@ t_end = 10000
 plt.ioff()
 fig, ax = plt.subplots(nrows=6,sharex=True,figsize=(10,12))
 fig_v, ax_v = plt.subplots(figsize=(10, 12))
-# fig_disp,ax_disp = plt.subplots(nrows = 2, sharex = False) #comment out to display
+fig_disp,ax_disp = plt.subplots(nrows = 2, sharex = False) #comment out to display
+plt.close(fig_disp)
 plt.close(fig)
 plt.close(fig_v)
-# plt.close(fig_disp)
 
 
 #KT: one plot displayed, uncomment out to display
-plt.ion()
-fig_disp,ax_disp = plt.subplots(nrows = 2, sharex = False)
-plt.show()
+# plt.ion()
+# fig_disp,ax_disp = plt.subplots(nrows = 2, sharex = False)
+# plt.show()
 
 #KT: Plotting Glacier Profile & SMB - display
 xx = df.interpolate(x,Q_dg).dat.data[:]
@@ -950,6 +950,7 @@ while t<t_end:
         #KT: Storing to HDF5 file 
         half = t_end//2
 
+        
         if counter == half:
             with open(os.path.join(indiv_run_path, 'time_dict.json'), 'w') as f:
                 json.dump(time_dict, f)
@@ -959,8 +960,7 @@ while t<t_end:
                 Check_Half.save_function(U, name = 'U_State')
                 Check_Half.save_function(T, name = 'T_State')
                 Check_Half.save_function(P, name = 'P_State')
-                if counter == 0:
-                    Check_Half.save_mesh(mesh)      #Saving the mesh at start
+                Check_Half.save_mesh(mesh)      
 
         t+=dt_float
         counter+=1
