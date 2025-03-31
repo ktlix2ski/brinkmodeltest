@@ -49,7 +49,7 @@ thklim = 1.0                # Minimum Ice Thickness
 zmin = -300.0               # Minimum elevation
 zmax = 2200.0               # Maximum elevation from OG
 
-amin = df.Constant(-8.0)       # Minimum smb
+amin = df.Constant(-16.0)       # Minimum smb
 amax = df.Constant(8.0)        # Maximum smb
 
 c = 2.0                       # Coefficient of exponential decay
@@ -71,7 +71,7 @@ eps_reg = df.Constant(1e-4)    # Regularization parameter
 
 
 l_s = df.Constant(2.0)         # Sediment thickness at which bedrock erosion becomes negligible 
-be = df.Constant(2e-9)         # Bedrock erosion coefficient
+be = df.Constant(1e-7)         # Bedrock erosion coefficient
 #be = df.Constant(1e-8)         # Paper code Bedrock erosion coefficient
 cc = df.Constant(5e-11)        # Fluvial erosion coefficient
 #cc = df.Constant(2e-12)        # Paper code Fluvial erosion coefficient
