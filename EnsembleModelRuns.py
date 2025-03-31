@@ -17,6 +17,7 @@ from firedrake import *
 import sys
 import pickle
 import gzip
+from firedrake.ensemble import Ensemble
 
 # HELPER FUNCTIONS
 def Max(a, b): return (a+b+abs(a-b))/df.Constant(2)
@@ -37,6 +38,41 @@ def full_quad(order):
     points = (points+1)/2.
     weights /= 2.
     return points,weights
+
+
+#ENSEMBLE STUFF
+variable_name = sys.argv[1]  # Get the variable name to be tested from the command line
+variable_values = [float(v) for v in sys.argv[2:]]  # Get the values for the variable
+
+default_values = {
+    "L": 55000,  # Leconte L
+    "amin": -16,  # Minimum SMB
+    "amax": 8,  # Maximum SMB
+    "c": 2.0,  # Coefficient of exponential decay
+    "amp": 100,  # Amplitude of sinusoidal topography
+    "rho_i": 917.0,  # Ice density
+    "rho_w": 1029.0,  # Seawater density
+    "rho_s": 1600.0,  # Sediment density
+    "rho_r": 2650.0,  # Bedrock density
+    "La": 3.35e5,  # Latent heat of melting
+    "g": 9.81,  # Gravitational acceleration
+    "n": 3.0,  # Glen's exponent
+    "m": 1.0,  # Sliding law exponent
+    "b": 1e-16**(-1./3.),  # Ice hardness
+    "eps_reg": 1e-4,  # Regularization parameter
+    "l_s": 2.0,  # Sediment thickness at which bedrock erosion becomes negligible
+    "be": 1e-9,  # Bedrock erosion coefficient
+    "cc": 5e-11,  # Fluvial erosion coefficient
+    "d": 500.0,  # Fallout fraction
+    "h_0": 0.1,  # Subglacial cavity depth
+    "k": 0.7,  # Constant for other processes
+    "scf" : 0.2,         # Fraction of floating ice removed per year
+    "k_diff" : 20,       # Sediment diffusivity
+    "h_ref" : 10 
+    }
+
+
+############################################################################
 
 # Logistic function
 sigmoid = lambda z: 1./(1+df.exp(-z))
@@ -98,12 +134,26 @@ dt_float = 0.1                  # OG Time step
 dt = df.Constant(dt_float)
 
 ##########################################################
+################      Ensemble Stuff     #################
+##########################################################  
+num_ensemble_members = 5
+ensemble = Ensemble(COMM_WORLD, num_ensemble_members)
+
+variable = "climate_factor"  # INSERT NAME OF VARIBALE BEING TESTED
+variable_values = [0.1, 0.2, 0.3, 0.4, 0.5]
+
+member_id = ensemble.ensemble_comm.rank
+variable_value = variable_values[member_id]  # Assign unique value per member
+
+
+
+##########################################################
 ################           MESH          #################
 ##########################################################  
 
 # Define a rectangular mesh
 nx = 300
-mesh = df.IntervalMesh(nx,0,2*L)       #OG uses length of domain as 2*L
+mesh = df.IntervalMesh(nx,0,2*L, comm=ensemble.comm)       #OG uses length of domain as 2*L
 
 Q_dg = df.FunctionSpace(mesh,"DG",0)
 H = df.Function(Q_dg)
@@ -665,25 +715,25 @@ anim_rupt = "/home/kayatroyer/Repositories/brinkmodeltest/Output/Simulation_Anim
 full_anim = "/home/kayatroyer/Repositories/brinkmodeltest/Output/Simulation_Animations/SuccessfulRuns"
 vel_path = "/home/kayatroyer/Repositories/brinkmodeltest/Output/Velocity Plots"
 
-success_filename = os.path.join(full_anim,f"FullModelRun_{start_time}.mp4")
-crash_filename = os.path.join(anim_crash,f"CrashedModelRun_{start_time}.mp4")
-interrupt_filename = os.path.join(anim_rupt,f"InterruptedModelRun_{start_time}.mp4")
+success_filename = os.path.join(full_anim,f"FullModelRun_{start_time}_{variable}_{member_id}.mp4")
+crash_filename = os.path.join(anim_crash,f"CrashedModelRun_{start_time}_{variable}_{member_id}.mp4")
+interrupt_filename = os.path.join(anim_rupt,f"InterruptedModelRun_{start_time}_{variable}_{member_id}.mp4")
 
-vel_file = os.path.join(vel_path, f"VelocityPlot_{start_time}.jpg")
+vel_file = os.path.join(vel_path, f"VelocityPlot_{start_time}_{variable}_{member_id}.jpg")
 
 #KT: comment out if you not saving at end and just using for display 
 display_path = "/home/kayatroyer/Repositories/brinkmodeltest/Output/diplay_plots"
-display_file = os.path.join(display_path,f"diplayplots_{start_time}.jpg")
+display_file = os.path.join(display_path,f"diplayplots_{start_time}_{variable}_{member_id}.jpg")
 
 #KT: Dictionary Folder
 dicts_folder = "/home/kayatroyer/Repositories/brinkmodeltest/Output/Variable_Dictionaries"
-dict_filename = os.path.join(dicts_folder, f"DATA_Dictionary_{start_time}.pkl.gz")
+dict_filename = os.path.join(dicts_folder, f"DATA_Dictionary_{start_time}_{variable}_{member_id}.pkl.gz")
 
 #KT: State Variable Folder 
 state_folder = "/home/kayatroyer/Repositories/brinkmodeltest/Output/State_Variables" 
 
 #KT: Making output directories and files
-indiv_run_name = f"Run_{start_time}"
+indiv_run_name = f"Run_{start_time} _{variable}_{member_id}"
 indiv_run_path = os.path.join(state_folder,indiv_run_name)
 os.makedirs(indiv_run_path, exist_ok=True)
 
@@ -732,297 +782,312 @@ counter = 0
 # Maximum time step!!  Increase with caution.
 dt_max = 5.0   #OG time step
 
+for i, value in enumerate(variable_values):
+        # Update climate_factor for this ensemble member
+    climate_factor.assign(value)  # Update the Firedrake Constant with the new value
 
-# LOOP OVER TIME: START OF MODEL SIMULATION
-while t<t_end:
-    try: # If the solvers don't converge, reduce the time step and try again.
-        print(t,dt_float)
+        # Print or log the current state for debugging
+    print(f"Running ensemble member {i} with climate_factor = {value}")
         
-        if counter%1==0:
-            fig.canvas.start_event_loop(0.00001)
-            fig.canvas.draw_idle()
+        # You can also print the updated 'adot' for debugging to ensure it's using the new value
+    print("Updated adot:", adot)
+
+    t = 0.0
+    t_end = 10000
+
+    counter = 0
+
+    # LOOP OVER TIME: START OF MODEL SIMULATION
+    while t<t_end:
+        try: # If the solvers don't converge, reduce the time step and try again.
+            print(t,dt_float)
             
-        # Solve the velocity-ice thickness equations
-        mass_solver.solve(bounds=(lower_bounds,upper_bounds))
-
-        # Solve for water flux
-        df.solve(A_Qw == b_Qw,Qw)
-
-        # Solve the sediment equations (excluding diffusion)
-        sed_solver.solve(bounds=(lower_bounds_sed,upper_bounds_sed))
-
-        # Update the previous thickness
-        ubar0.dat.data[:] = U.dat.data[0]
-        udef0.dat.data[:] = U.dat.data[1]
-        H0.dat.data[:] = U.dat.data[2]
-
-        # Update previous bed elevation
-        B0.dat.data[:] = T.dat.data[0]
-
-        # Update previous sediment thickness, KT added updating fluvial sed flux
-        h_s0.dat.data[:] = T.dat.data[2]
-        Qs0.dat.data[:] = T.dat.data[1]
-
-        # diffusion mechanics
-        # Set current sed thickness to solution from sed transport
-        h_sd0.dat.data[:] = h_s0.dat.data[:]
-        P.sub(0).assign(h_s0)
-
-        # Solve diffusion equation
-        df.solve(R_d==0,P)
-
-        # Update main sed thickness variables
-        h_s0.dat.data[:] = P.dat.data[0]
-        T.sub(2).assign(h_s0)
-
-        # Increase time step if solvers complete successfully
-        dt_float = min(1.05*dt_float,dt_max)
-        dt.assign(dt_float)
-
-        ############ PERFORM PLOTTING ######################
+            if counter%1==0:
+                fig.canvas.start_event_loop(0.00001)
+                fig.canvas.draw_idle()
 
 
-        #KT: Time text for plots
-        time_text1.set_text(f'Time: {t:.2f} years') 
-        time_text2.set_text(f'Time: {t:.2f} years') 
-        time_text4.set_text(f'Time: {t:.2f} years') 
+            # Solve the velocity-ice thickness equations
+            mass_solver.solve(bounds=(lower_bounds,upper_bounds))
+
+            # Solve for water flux
+            df.solve(A_Qw == b_Qw,Qw)
+
+            # Solve the sediment equations (excluding diffusion)
+            sed_solver.solve(bounds=(lower_bounds_sed,upper_bounds_sed))
+
+            # Update the previous thickness
+            ubar0.dat.data[:] = U.dat.data[0]
+            udef0.dat.data[:] = U.dat.data[1]
+            H0.dat.data[:] = U.dat.data[2]
+
+            # Update previous bed elevation
+            B0.dat.data[:] = T.dat.data[0]
+
+            # Update previous sediment thickness, KT added updating fluvial sed flux
+            h_s0.dat.data[:] = T.dat.data[2]
+            Qs0.dat.data[:] = T.dat.data[1]
+
+            # diffusion mechanics
+            # Set current sed thickness to solution from sed transport
+            h_sd0.dat.data[:] = h_s0.dat.data[:]
+            P.sub(0).assign(h_s0)
+
+            # Solve diffusion equation
+            df.solve(R_d==0,P)
+
+            # Update main sed thickness variables
+            h_s0.dat.data[:] = P.dat.data[0]
+            T.sub(2).assign(h_s0)
+
+            # Increase time step if solvers complete successfully
+            dt_float = min(1.05*dt_float,dt_max)
+            dt.assign(dt_float)
+
+            ############ PERFORM PLOTTING ######################
 
 
-        nan_idx = np.where(np.isnan(time_values))[0]  #this adds times to the time_values as it runs through the loop and replaces nans
-        if len(nan_idx) > 0:  
-            time_values[nan_idx[0]] = t      
+            #KT: Time text for plots
+            time_text1.set_text(f'Time: {t:.2f} years') 
+            time_text2.set_text(f'Time: {t:.2f} years') 
+            time_text4.set_text(f'Time: {t:.2f} years') 
 
 
-        #KT: Grounding Line Plot
-        grounded = df.interpolate(floating,Q_dg)
-        g_ = grounded.dat.data[:]
-        ph_grounded.set_ydata(g_)
-
-        #KT: Surface & Basal Velocity Plot
-        us_ = df.project(u(0), Q_dg).vector().get_local()
-        ub_ = df.project(u(1), Q_dg).vector().get_local()
-
-        thk = H0.vector().get_local()
-        us_[thk<=(thklim+1e-2)] = np.nan
-        ub_[thk<=(thklim+1e-2)] = np.nan
-    
-        #Updating Data on Mesh
-        base = df.interpolate(Base,Q_dg)
-        surf = df.interpolate(S,Q_dg)
-        sed = df.interpolate(B0 + h_s0,Q_dg) 
-        hs = df.interpolate(h_s0,Q_dg)
-        Qs = df.interpolate(Qs0, Q_dg)
-        thick = df.interpolate(H0,Q_dg)
-
-        #Updating Data on Main Glacier Plot - animation
-        # ph_bed.set_ydata(B0.dat.data[:])
-        # ph_base.set_ydata(base.dat.data[:])
-        # ph_surf.set_ydata(surf.dat.data[:])
-        # ph_sed.set_ydata(sed.dat.data[:])
-
-        #Updating Data on Main Glacier Plot - display
-        ph_bed1.set_ydata(B0.dat.data[:])
-        ph_base1.set_ydata(base.dat.data[:])
-        ph_surf1.set_ydata(surf.dat.data[:])
-        ph_sed1.set_ydata(sed.dat.data[:])
-
-        #Updating basal and surface speeds vs distance
-        # ph_us.set_ydata(us_)
-        # ph_ub.set_ydata(ub_)
-
-        #KT: Updating Ice Thickness
-        # ph_thick.set_ydata(thick.dat.data[:])
-        # ax[2].set_ylim(0,thick.dat.data[:].max()+100)  #KT: actively changing y axis
-
-        #KT: added to avoid issues with NaNs in the thklim 
-        us_filtered = us_[np.isfinite(us_)]  
-        if len(us_filtered) > 0:
-            ax[3].set_ylim(0, us_filtered.max() + 100) #KT: actively changing y axis
-
-        #KT: Updating Sediment Thickness
-        # ph_hs.set_ydata(hs.dat.data[:])
-        # ax[4].set_ylim(0,hs.dat.data[:].max() + 100) #KT: actively changing y axis
-
-        #KT: Updating Fluvial Seidment Flux
-        # ph_fluv.set_ydata(Qs.dat.data[:])
-        # ax[5].set_ylim(0,Qs.dat.data[:].max() + 100 ) #KT: actively changing y axis
-
-        #KT: Updating SMB Plot
-        # ph_SMB.set_ydata(surf.dat.data[:])
-        ph_SMB_disp.set_ydata(surf.dat.data[:])
-
-        #KT: Velocities and GL over time, velocity extracted from 50 indices behind terminus
-        notNAN = np.where(np.isfinite(us_))[0]
-
-        if len(notNAN) > 0:
-            terminus = notNAN[-1]
-        else:
-            terminus = None
-
-        if terminus is not None and terminus >= 50:
-            term_usvel = us_[terminus - 50]  
-            term_ubvel = ub_[terminus - 50]
-        else:
-            term_usvel = 0
-            term_ubvel = 0
-
-        if np.isnan(term_usvel):
-            term_usvel = 0
-        if np.isnan(term_ubvel):
-            term_ubvel = 0
-
-        time_values.append(t)
-        surface_velocity.append(term_usvel)  
-        basal_velocity.append(term_ubvel)
+            nan_idx = np.where(np.isnan(time_values))[0]  #this adds times to the time_values as it runs through the loop and replaces nans
+            if len(nan_idx) > 0:  
+                time_values[nan_idx[0]] = t      
 
 
-        if counter % 10 == 0:
-            ph_surface.set_xdata(time_values)
-            ph_basal.set_xdata(time_values)
-            ph_surface.set_ydata(surface_velocity)
-            ph_basal.set_ydata(basal_velocity)
+            #KT: Grounding Line Plot
+            grounded = df.interpolate(floating,Q_dg)
+            g_ = grounded.dat.data[:]
+            ph_grounded.set_ydata(g_)
 
-        ax_v.set_xlim(0,10000)      
+            #KT: Surface & Basal Velocity Plot
+            us_ = df.project(u(0), Q_dg).vector().get_local()
+            ub_ = df.project(u(1), Q_dg).vector().get_local()
 
-        # if t > ax_v.get_xlim()[1]:
-        #     ax_v.set_xlim(0, t + 100)  
+            thk = H0.vector().get_local()
+            us_[thk<=(thklim+1e-2)] = np.nan
+            ub_[thk<=(thklim+1e-2)] = np.nan
+        
+            #Updating Data on Mesh
+            base = df.interpolate(Base,Q_dg)
+            surf = df.interpolate(S,Q_dg)
+            sed = df.interpolate(B0 + h_s0,Q_dg) 
+            hs = df.interpolate(h_s0,Q_dg)
+            Qs = df.interpolate(Qs0, Q_dg)
+            thick = df.interpolate(H0,Q_dg)
 
-        if max(surface_velocity + basal_velocity) > ax_v.get_ylim()[1]:
-            ax_v.set_ylim(0, max(surface_velocity + basal_velocity) + 100)  # Extend velocity axis
+            #Updating Data on Main Glacier Plot - animation
+            # ph_bed.set_ydata(B0.dat.data[:])
+            # ph_base.set_ydata(base.dat.data[:])
+            # ph_surf.set_ydata(surf.dat.data[:])
+            # ph_sed.set_ydata(sed.dat.data[:])
 
+            #Updating Data on Main Glacier Plot - display
+            ph_bed1.set_ydata(B0.dat.data[:])
+            ph_base1.set_ydata(base.dat.data[:])
+            ph_surf1.set_ydata(surf.dat.data[:])
+            ph_sed1.set_ydata(sed.dat.data[:])
 
-        # Redraw the figure
-        if counter % 100 == 0:
-            fig_disp.canvas.draw()
+            #Updating basal and surface speeds vs distance
+            # ph_us.set_ydata(us_)
+            # ph_ub.set_ydata(ub_)
 
-        ##################### DONE PLOTTING, START STORING VARIABLES #####################
+            #KT: Updating Ice Thickness
+            # ph_thick.set_ydata(thick.dat.data[:])
+            # ax[2].set_ylim(0,thick.dat.data[:].max()+100)  #KT: actively changing y axis
 
-        #KT: Update animation frames
-        frames.append(counter)
+            #KT: added to avoid issues with NaNs in the thklim 
+            us_filtered = us_[np.isfinite(us_)]  
+            if len(us_filtered) > 0:
+                ax[3].set_ylim(0, us_filtered.max() + 100) #KT: actively changing y axis
 
-        #KT: Load Dictionaries with values 
-        time_dict[counter] = t
-        counter_dict[t] = counter 
+            #KT: Updating Sediment Thickness
+            # ph_hs.set_ydata(hs.dat.data[:])
+            # ax[4].set_ylim(0,hs.dat.data[:].max() + 100) #KT: actively changing y axis
 
-        # if counter % 2 == 0:
-        bed_dict[t] = B0.dat.data[:]
-        base_dict[t] = base.dat.data[:]
-        surf_dict[t] = surf.dat.data[:]
-        sed_dict[t] = sed.dat.data[:]
-        H_dict[t] = thick.dat.data[:]         
-        us_dict[t] = us_           
-        ub_dict[t] = ub_        
-        Hs_dict[t] = hs.dat.data[:]        
-        GL_dict[t] = g_             
-        Qs_dict[t] = Qs.dat.data[:]        
+            #KT: Updating Fluvial Seidment Flux
+            # ph_fluv.set_ydata(Qs.dat.data[:])
+            # ax[5].set_ylim(0,Qs.dat.data[:].max() + 100 ) #KT: actively changing y axis
 
-        #KT: Loading main data dictionary with dictionaries
-        if counter % 1000 == 0:
-            DATA_dict.update({
-                'counter_dict': counter_dict,
-                'bed_dict': bed_dict,
-                'base_dict': base_dict,
-                'surf_dict': surf_dict,
-                'sed_dict': sed_dict,
-                'H_dict': H_dict,
-                'us_dict': us_dict,
-                'ub_dict': ub_dict,
-                'Hs_dict': Hs_dict,
-                'GL_dict': GL_dict,
-                'Qs_dict': Qs_dict
-            })
+            #KT: Updating SMB Plot
+            # ph_SMB.set_ydata(surf.dat.data[:])
+            ph_SMB_disp.set_ydata(surf.dat.data[:])
 
-         #KT: Pickling Data Dictionary
-        if counter % 2000 == 0:
-            if os.path.exists(dict_filename):
-                with gzip.open(dict_filename, 'rb', compresslevel=3) as f:
-                    existing_data = pickle.load(f)
+            #KT: Velocities and GL over time, velocity extracted from 50 indices behind terminus
+            notNAN = np.where(np.isfinite(us_))[0]
+
+            if len(notNAN) > 0:
+                terminus = notNAN[-1]
             else:
-                existing_data = {}
+                terminus = None
+
+            if terminus is not None and terminus >= 50:
+                term_usvel = us_[terminus - 50]  
+                term_ubvel = ub_[terminus - 50]
+            else:
+                term_usvel = 0
+                term_ubvel = 0
+
+            if np.isnan(term_usvel):
+                term_usvel = 0
+            if np.isnan(term_ubvel):
+                term_ubvel = 0
+
+            time_values.append(t)
+            surface_velocity.append(term_usvel)  
+            basal_velocity.append(term_ubvel)
+
+
+            if counter % 10 == 0:
+                ph_surface.set_xdata(time_values)
+                ph_basal.set_xdata(time_values)
+                ph_surface.set_ydata(surface_velocity)
+                ph_basal.set_ydata(basal_velocity)
+
+            ax_v.set_xlim(0,10000)      
+
+            # if t > ax_v.get_xlim()[1]:
+            #     ax_v.set_xlim(0, t + 100)  
+
+            if max(surface_velocity + basal_velocity) > ax_v.get_ylim()[1]:
+                ax_v.set_ylim(0, max(surface_velocity + basal_velocity) + 100)  # Extend velocity axis
+
+
+            # Redraw the figure
+            if counter % 100 == 0:
+                fig_disp.canvas.draw()
+
+            ##################### DONE PLOTTING, START STORING VARIABLES #####################
+
+            #KT: Update animation frames
+            frames.append(counter)
+
+            #KT: Load Dictionaries with values 
+            time_dict[counter] = t
+            counter_dict[t] = counter 
+
+            # if counter % 2 == 0:
+            bed_dict[t] = B0.dat.data[:]
+            base_dict[t] = base.dat.data[:]
+            surf_dict[t] = surf.dat.data[:]
+            sed_dict[t] = sed.dat.data[:]
+            H_dict[t] = thick.dat.data[:]         
+            us_dict[t] = us_           
+            ub_dict[t] = ub_        
+            Hs_dict[t] = hs.dat.data[:]        
+            GL_dict[t] = g_             
+            Qs_dict[t] = Qs.dat.data[:]        
+
+            #KT: Loading main data dictionary with dictionaries
+            if counter % 1000 == 0:
+                DATA_dict.update({
+                    'counter_dict': counter_dict,
+                    'bed_dict': bed_dict,
+                    'base_dict': base_dict,
+                    'surf_dict': surf_dict,
+                    'sed_dict': sed_dict,
+                    'H_dict': H_dict,
+                    'us_dict': us_dict,
+                    'ub_dict': ub_dict,
+                    'Hs_dict': Hs_dict,
+                    'GL_dict': GL_dict,
+                    'Qs_dict': Qs_dict
+                })
+
+            #KT: Pickling Data Dictionary
+            if counter % 2000 == 0:
+                if os.path.exists(dict_filename):
+                    with gzip.open(dict_filename, 'rb', compresslevel=3) as f:
+                        existing_data = pickle.load(f)
+                else:
+                    existing_data = {}
+                
+                existing_data.update(DATA_dict)
+
+                with gzip.open(dict_filename, 'wb', compresslevel=3) as f:
+                    pickle.dump(existing_data, f)
+                
+                DATA_dict.clear()
             
-            existing_data.update(DATA_dict)
+            #KT: Storing to HDF5 file 
+            half = t_end//2
 
-            with gzip.open(dict_filename, 'wb', compresslevel=3) as f:
-                pickle.dump(existing_data, f)
             
-            DATA_dict.clear()
-        
-        #KT: Storing to HDF5 file 
-        half = t_end//2
+            if counter == half:
+                with open(os.path.join(indiv_run_path, 'time_dict.json'), 'w') as f:
+                    json.dump(time_dict, f)
 
-        
-        if counter == half:
-            with open(os.path.join(indiv_run_path, 'time_dict.json'), 'w') as f:
-                json.dump(time_dict, f)
+                # Saving Functions
+                with CheckpointFile(half_checkpoint_path, "w") as Check_Half:
+                    Check_Half.save_function(U, name = 'U_State')
+                    Check_Half.save_function(T, name = 'T_State')
+                    Check_Half.save_function(P, name = 'P_State')
+                    Check_Half.save_mesh(mesh)      
 
-            # Saving Functions
-            with CheckpointFile(half_checkpoint_path, "w") as Check_Half:
-                Check_Half.save_function(U, name = 'U_State')
-                Check_Half.save_function(T, name = 'T_State')
-                Check_Half.save_function(P, name = 'P_State')
-                Check_Half.save_mesh(mesh)      
+            t+=dt_float
+            counter+=1
 
-        t+=dt_float
-        counter+=1
+        except df.ConvergenceError:
 
-    except df.ConvergenceError:
+            # If the solvers don't converge, reset variables to previous time step's succesful values and try again.  
+            U.sub(0).assign(1e-10)
+            U.sub(1).assign(1e-10)
+            U.sub(2).assign(H0)
 
-        # If the solvers don't converge, reset variables to previous time step's succesful values and try again.  
-        U.sub(0).assign(1e-10)
-        U.sub(1).assign(1e-10)
-        U.sub(2).assign(H0)
+            T.sub(0).assign(B0)
+            T.sub(1).assign(df.Constant(0.0))
+            T.sub(2).assign(h_s0)
+            T.sub(3).assign(h_eff0)
 
-        T.sub(0).assign(B0)
-        T.sub(1).assign(df.Constant(0.0))
-        T.sub(2).assign(h_s0)
-        T.sub(3).assign(h_eff0)
+            dt_float/=2.
+            dt.assign(dt_float)
+            print('convergence failed, reducing time step and trying again')
 
-        dt_float/=2.
-        dt.assign(dt_float)
-        print('convergence failed, reducing time step and trying again')
+    #KT: adding these in case of intterupt 
+        except KeyboardInterrupt:
+            interrupt(signal.SIGINT, None)
+            break
+        except Exception as e:
+            print(f"Unexpected Error: {e}")
+            interrupt(signal.SIGINT, None)
+            break
 
-#KT: adding these in case of intterupt 
-    except KeyboardInterrupt:
-        interrupt(signal.SIGINT, None)
-        break
-    except Exception as e:
-        print(f"Unexpected Error: {e}")
-        interrupt(signal.SIGINT, None)
-        break
+        if (dt_float < 1e-10): # Things have really gone off the rails and the simulation is shutting down
+            print("model stalling, time step approaching zero. Saving animation before shutdown...")
+            
+            fig_v.savefig(vel_file)
 
-    if (dt_float < 1e-10): # Things have really gone off the rails and the simulation is shutting down
-        print("model stalling, time step approaching zero. Saving animation before shutdown...")
-        
+
+            ani_break = animation.FuncAnimation(fig, update_anim, frames = len(frames), interval=100, blit=False) #KT: added
+            ani_break.save(crash_filename, writer="ffmpeg", fps=10, dpi=150)    #KT: added
+
+            print(f"Crashed Animation saved to: {crash_filename}")  #KT: added
+            print("MODEL BREAKING NOT SAVING FINAL STATE VARIABLES")
+            break
+
+    #KT: added this to do a final save of model stuff
+    if t >= t_end-5:
+        ani = animation.FuncAnimation(fig, update_anim, frames = len(frames), interval=100, blit=False)
+        #if not ani._is_saving:  # Ensure animation isn't already being written
+        ani.save(success_filename, writer="ffmpeg", fps=10, dpi=150)
+
+        print(f"Successful Model Run Animation saved to: {success_filename}")
+
+        print("Simulation completed successfully. Saving final state variables... ")
+
+        with open(os.path.join(indiv_run_path, 'time_dict_final.json'), 'w') as f:
+                    json.dump(time_dict, f)
+            
+        with CheckpointFile(final_checkpoint_path, "w") as Check_Final:
+            Check_Final.save_function(U, name = 'U_State_final')
+            Check_Final.save_function(T, name = 'T_State_final')
+            Check_Final.save_function(P, name = 'P_State_final')
+            Check_Final.save_mesh(mesh)
+
         fig_v.savefig(vel_file)
+        fig_disp.savefig(display_file)
 
-
-        ani_break = animation.FuncAnimation(fig, update_anim, frames = len(frames), interval=100, blit=False) #KT: added
-        ani_break.save(crash_filename, writer="ffmpeg", fps=10, dpi=150)    #KT: added
-
-        print(f"Crashed Animation saved to: {crash_filename}")  #KT: added
-        print("MODEL BREAKING NOT SAVING FINAL STATE VARIABLES")
-        break
-
-#KT: added this to do a final save of model stuff
-if t >= t_end-5:
-    ani = animation.FuncAnimation(fig, update_anim, frames = len(frames), interval=100, blit=False)
-    #if not ani._is_saving:  # Ensure animation isn't already being written
-    ani.save(success_filename, writer="ffmpeg", fps=10, dpi=150)
-
-    print(f"Successful Model Run Animation saved to: {success_filename}")
-
-    print("Simulation completed successfully. Saving final state variables... ")
-
-    with open(os.path.join(indiv_run_path, 'time_dict_final.json'), 'w') as f:
-                json.dump(time_dict, f)
-        
-    with CheckpointFile(final_checkpoint_path, "w") as Check_Final:
-        Check_Final.save_function(U, name = 'U_State_final')
-        Check_Final.save_function(T, name = 'T_State_final')
-        Check_Final.save_function(P, name = 'P_State_final')
-        Check_Final.save_mesh(mesh)
-
-    fig_v.savefig(vel_file)
-    fig_disp.savefig(display_file)
-
-    print("ALL SAVING DONE!")
+        print("ALL SAVING DONE!")
