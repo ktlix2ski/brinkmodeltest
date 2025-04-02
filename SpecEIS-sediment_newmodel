@@ -71,7 +71,7 @@ eps_reg = df.Constant(1e-4)    # Regularization parameter
 
 
 l_s = df.Constant(2.0)         # Sediment thickness at which bedrock erosion becomes negligible 
-be = df.Constant(1e-9)         # Bedrock erosion coefficient
+be = df.Constant(1e-7)         # Bedrock erosion coefficient
 #be = df.Constant(1e-8)         # Paper code Bedrock erosion coefficient
 cc = df.Constant(5e-11)        # Fluvial erosion coefficient
 #cc = df.Constant(2e-12)        # Paper code Fluvial erosion coefficient
@@ -673,7 +673,8 @@ vel_file = os.path.join(vel_path, f"VelocityPlot_{start_time}.jpg")
 
 #KT: comment out if you not saving at end and just using for display 
 display_path = "/home/kayatroyer/Repositories/brinkmodeltest/Output/diplay_plots"
-display_file = os.path.join(display_path,f"diplayplots_{start_time}.jpg")
+display_file = os.path.join(display_path,f"displayplots_{start_time}.jpg")
+display_file_init =os.path.join(display_path,f"init_displayplots_{start_time}.jpg")
 
 #KT: Dictionary Folder
 dicts_folder = "/home/kayatroyer/Repositories/brinkmodeltest/Output/Variable_Dictionaries"
@@ -897,6 +898,9 @@ while t<t_end:
 
         ##################### DONE PLOTTING, START STORING VARIABLES #####################
 
+        if counter == 0:
+            fig_disp.savefig(display_file_init) 
+
         #KT: Update animation frames
         frames.append(counter)
 
@@ -905,7 +909,7 @@ while t<t_end:
         counter_dict[t] = counter 
 
         # if counter % 2 == 0:
-        bed_dict[t] = B0.dat.data[:]
+        bed_dict[t] = B0.dat.data[:].copy()
         base_dict[t] = base.dat.data[:]
         surf_dict[t] = surf.dat.data[:]
         sed_dict[t] = sed.dat.data[:]
@@ -994,6 +998,7 @@ while t<t_end:
         print("model stalling, time step approaching zero. Saving animation before shutdown...")
         
         fig_v.savefig(vel_file)
+        fig_disp.savefig(display_file)
 
 
         ani_break = animation.FuncAnimation(fig, update_anim, frames = len(frames), interval=100, blit=False) #KT: added
