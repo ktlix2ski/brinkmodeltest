@@ -49,7 +49,7 @@ thklim = 1.0                # Minimum Ice Thickness
 zmin = -300.0               # Minimum elevation
 zmax = 2200.0               # Maximum elevation from OG
 
-amin = df.Constant(-16.0)       # Minimum smb
+amin = df.Constant(-10.0)       # Minimum smb
 amax = df.Constant(8.0)        # Maximum smb
 
 c = 2.0                       # Coefficient of exponential decay
@@ -82,7 +82,7 @@ k = df.Constant(0.7)           # Fraction of overburden defining water pressure
 
 # Shelf collapse factor 
 # units of a^{-1}
-scf = df.Constant(0.5)          # Fraction of floating ice removed per year
+scf = df.Constant(0.2)          # Fraction of floating ice removed per year
 
 # k_diff = df.Constant(20)       # Sediment diffusivity
 k_diff = df.Constant(20)       
