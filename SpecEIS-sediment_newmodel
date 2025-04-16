@@ -49,8 +49,8 @@ thklim = 1.0                # Minimum Ice Thickness
 zmin = -300.0               # Minimum elevation
 zmax = 2200.0               # Maximum elevation from OG
 
-amin = df.Constant(-10.0)       # Minimum smb
-amax = df.Constant(8.0)        # Maximum smb
+amin = df.Constant(-16.0)       # Minimum smb
+amax = df.Constant(6.0)        # Maximum smb
 
 c = 2.0                       # Coefficient of exponential decay
 
@@ -1029,5 +1029,46 @@ if t >= t_end-5:
 
     fig_v.savefig(vel_file)
     fig_disp.savefig(display_file)
+
+    print("Last save of dictionary")
+    time_dict[counter] = t
+    counter_dict[t] = counter 
+
+    bed_dict[t] = B0.dat.data[:].copy()
+    base_dict[t] = base.dat.data[:]
+    surf_dict[t] = surf.dat.data[:]
+    sed_dict[t] = sed.dat.data[:]
+    H_dict[t] = thick.dat.data[:]         
+    us_dict[t] = us_           
+    ub_dict[t] = ub_        
+    Hs_dict[t] = hs.dat.data[:]        
+    GL_dict[t] = g_             
+    Qs_dict[t] = Qs.dat.data[:]     
+
+
+    DATA_dict.update({
+        'counter_dict': counter_dict,
+        'bed_dict': bed_dict,
+        'base_dict': base_dict,
+        'surf_dict': surf_dict,
+        'sed_dict': sed_dict,
+        'H_dict': H_dict,
+        'us_dict': us_dict,
+        'ub_dict': ub_dict,
+        'Hs_dict': Hs_dict,
+        'GL_dict': GL_dict,
+        'Qs_dict': Qs_dict
+    })
+
+    if os.path.exists(dict_filename):
+        with gzip.open(dict_filename, 'rb', compresslevel=3) as f:
+            existing_data = pickle.load(f)
+            
+        existing_data.update(DATA_dict)
+
+        with gzip.open(dict_filename, 'wb', compresslevel=3) as f:
+            pickle.dump(existing_data, f)
+            
+    DATA_dict.clear()
 
     print("ALL SAVING DONE!")
