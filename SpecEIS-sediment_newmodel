@@ -50,7 +50,7 @@ zmin = -300.0               # Minimum elevation
 zmax = 2200.0               # Maximum elevation from OG
 
 amin = df.Constant(-16.0)       # Minimum smb
-amax = df.Constant(9.0)        # Maximum smb
+amax = df.Constant(8.5)        # Maximum smb
 
 c = 2.0                       # Coefficient of exponential decay
 
