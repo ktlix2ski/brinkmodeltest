@@ -54,7 +54,7 @@ amax = df.Constant(8)        # Maximum smb
 
 c = 2.0                       # Coefficient of exponential decay
 
-amp = 100                   # Amplitude of sinusoidal topography 
+amp = 25                   # Amplitude of sinusoidal topography 
 
 rho = rho_i = 917.                  # Ice density
 rho_w = 1029.0              # Seawater density
@@ -486,7 +486,7 @@ udef0.vector().apply("insert")
 ###############################################################################
 #########################  Animation Init.  ###################################
 ###############################################################################
-t_end = 1000
+t_end = 20000
 
 # #KT: Plots for saving only 
 # plt.ioff()
@@ -625,37 +625,37 @@ DATA_dict ={}
 start_time = datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
 
 #KT: Function to update animation frames to be compiled into simulation movie
-frames = []
-def update_anim(frame):
-    "updates the plots for FuncAnimation"
-    t = time_dict[frame]
-    time_text1.set_text(f'Time: {t:.2f} years')
+# frames = []
+# def update_anim(frame):
+#     "updates the plots for FuncAnimation"
+#     t = time_dict[frame]
+#     time_text1.set_text(f'Time: {t:.2f} years')
 
-    ph_bed.set_ydata(bed_dict[t])
-    ph_base.set_ydata(base_dict[t])
-    ph_surf.set_ydata(surf_dict[t])
-    ph_sed.set_ydata(sed_dict[t])
+#     ph_bed.set_ydata(bed_dict[t])
+#     ph_base.set_ydata(base_dict[t])
+#     ph_surf.set_ydata(surf_dict[t])
+#     ph_sed.set_ydata(sed_dict[t])
 
-    ph_grounded.set_ydata(GL_dict[t])
-    ph_us.set_ydata(us_dict[t])
-    ph_ub.set_ydata(ub_dict[t])
-    ax[3].set_ylim(0, max(us_dict[t]) + 100)
+#     ph_grounded.set_ydata(GL_dict[t])
+#     ph_us.set_ydata(us_dict[t])
+#     ph_ub.set_ydata(ub_dict[t])
+#     ax[3].set_ylim(0, max(us_dict[t]) + 100)
 
-    ph_thick.set_ydata(H_dict[t])
-    ax[2].set_ylim(0, max(H_dict[t]) + 100)
-    ph_hs.set_ydata(Hs_dict[t])
-    ax[4].set_ylim(0, max(Hs_dict[t]) + 100)
-    ph_fluv.set_ydata(Qs_dict[t])
-    ax[5].set_ylim(0, max(Qs_dict[t]) + 100)
+#     ph_thick.set_ydata(H_dict[t])
+#     ax[2].set_ylim(0, max(H_dict[t]) + 100)
+#     ph_hs.set_ydata(Hs_dict[t])
+#     ax[4].set_ylim(0, max(Hs_dict[t]) + 100)
+#     ph_fluv.set_ydata(Qs_dict[t])
+#     ax[5].set_ylim(0, max(Qs_dict[t]) + 100)
 
-    for a in ax:
-        a.relim()  
-        a.autoscale_view(True, True, True) 
+#     for a in ax:
+#         a.relim()  
+#         a.autoscale_view(True, True, True) 
 
-    fig.canvas.draw()
-    fig.canvas.flush_events()
+#     fig.canvas.draw()
+#     fig.canvas.flush_events()
 
-    return [time_text1, ph_bed, ph_base, ph_surf, ph_sed, ph_grounded, ph_ub, ph_us, ph_thick, ph_hs, ph_fluv]
+#     return [time_text1, ph_bed, ph_base, ph_surf, ph_sed, ph_grounded, ph_ub, ph_us, ph_thick, ph_hs, ph_fluv]
 
 
 ######### KT: OUTPUT DIRECTORIES & FILES FOR STORING SIMULATION DATA ################################
@@ -727,7 +727,7 @@ final_checkpoint_path = os.path.join(indiv_run_path, "checkpoint_final.h5")
 
 # Time interval
 t = 0.0
-t_end = 1000
+t_end = 20000
 
 counter = 0
 
