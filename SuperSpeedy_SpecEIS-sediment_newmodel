@@ -54,7 +54,7 @@ amax = df.Constant(8)        # Maximum smb
 
 c = 2.0                       # Coefficient of exponential decay
 
-amp = 25                   # Amplitude of sinusoidal topography 
+amp = 100                   # Amplitude of sinusoidal topography 
 
 rho = rho_i = 917.                  # Ice density
 rho_w = 1029.0              # Seawater density
@@ -486,7 +486,7 @@ udef0.vector().apply("insert")
 ###############################################################################
 #########################  Animation Init.  ###################################
 ###############################################################################
-t_end = 20000
+t_end = 40000
 
 # #KT: Plots for saving only 
 # plt.ioff()
@@ -727,7 +727,7 @@ final_checkpoint_path = os.path.join(indiv_run_path, "checkpoint_final.h5")
 
 # Time interval
 t = 0.0
-t_end = 20000
+t_end = 40000
 
 counter = 0
 
