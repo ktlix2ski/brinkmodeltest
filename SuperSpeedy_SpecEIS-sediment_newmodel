@@ -236,7 +236,7 @@ S = Base + H                                 # Ice surface
 beta2 = df.interpolate(beta_expression,Q_cg)  #KT: beta_expression = 50
 
 # Surface mass balance
-climate_factor = df.Constant(1.4)      
+climate_factor = df.Constant(1.7)      
 #adot = climate_factor*(8 - 16/(4*L/3.)*x)  #this was hardcoded in new model
 adot = climate_factor*(amax +(amin-amax)*(x/(2*L))) #USE THIS: Variable version of hardcoded from new model, produces same outcome but lets you easily change amin and amax
 
@@ -486,7 +486,7 @@ udef0.vector().apply("insert")
 ###############################################################################
 #########################  Animation Init.  ###################################
 ###############################################################################
-t_end = 20000
+t_end = 10000
 
 # #KT: Plots for saving only 
 # plt.ioff()
@@ -727,7 +727,7 @@ final_checkpoint_path = os.path.join(indiv_run_path, "checkpoint_final.h5")
 
 # Time interval
 t = 0.0
-t_end = 20000
+t_end = 10000
 
 counter = 0
 

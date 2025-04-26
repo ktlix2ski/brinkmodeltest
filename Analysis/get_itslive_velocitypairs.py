@@ -21,7 +21,7 @@ base_url = "https://nsidc.org/apps/itslive-search/velocities/urls/"
 
 # LeConte
 
-year_start = "2023"
+year_start = "1985"
 year_stop = "2023"
 
 params = {
@@ -61,8 +61,8 @@ print('Found ' + str(len(velocity_pairs.content)) + ' velocity pairs')
 # folder to save the files
 # nc_savefolder = '/Volumes/Sandisk4TB/PhD_MS/TARSAN/ITS_LIVE/netCDFs/velocity_pairs_TWITandTEIS/from_requests//max30daysep/nc/' + year + '/orig/'
 # png_savefolder = '/Volumes/Sandisk4TB/PhD_MS/TARSAN/ITS_LIVE/netCDFs/velocity_pairs_TWITandTEIS/from_requests//max30daysep/png/' + year + '/orig/'
-nc_savefolder = '/Volumes/WagsWork/data/LeConte_velocity_pairs/velocity_pairs' + year_start + '_' + year_stop + '/orig/'
-png_savefolder = '/Volumes/WagsWork/data/LeConte_velocity_pairs/velocity_pairs' + year_start + '_' + year_stop + '/orig/'
+nc_savefolder = '/media/kayatroyer/KayaDrive/Thesis/Figures/Results/ItsLIVE_Velocity' + year_start + '_' + year_stop + '/orig/'
+png_savefolder = '/media/kayatroyer/KayaDrive/Thesis/Figures/Results/ItsLIVE_Velocity' + year_start + '_' + year_stop + '/orig/'
 
 # if the folders don't exist, make them!
 if not os.path.exists(nc_savefolder):
