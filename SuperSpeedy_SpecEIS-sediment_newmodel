@@ -71,7 +71,7 @@ eps_reg = df.Constant(1e-4)    # Regularization parameter
 
 
 l_s = df.Constant(2.0)         # Sediment thickness at which bedrock erosion becomes negligible 
-be = df.Constant(2e-9)         # Bedrock erosion coefficient
+be = df.Constant(5.5e-9)         # Bedrock erosion coefficient
 #be = df.Constant(1e-8)         # Paper code Bedrock erosion coefficient
 cc = df.Constant(5e-11)        # Fluvial erosion coefficient
 #cc = df.Constant(2e-12)        # Paper code Fluvial erosion coefficient
@@ -236,7 +236,7 @@ S = Base + H                                 # Ice surface
 beta2 = df.interpolate(beta_expression,Q_cg)  #KT: beta_expression = 50
 
 # Surface mass balance
-climate_factor = df.Constant(1.7)      
+climate_factor = df.Constant(1.0)      
 #adot = climate_factor*(8 - 16/(4*L/3.)*x)  #this was hardcoded in new model
 adot = climate_factor*(amax +(amin-amax)*(x/(2*L))) #USE THIS: Variable version of hardcoded from new model, produces same outcome but lets you easily change amin and amax
 
@@ -486,7 +486,7 @@ udef0.vector().apply("insert")
 ###############################################################################
 #########################  Animation Init.  ###################################
 ###############################################################################
-t_end = 10000
+t_end = 20000
 
 # #KT: Plots for saving only 
 # plt.ioff()
@@ -727,7 +727,7 @@ final_checkpoint_path = os.path.join(indiv_run_path, "checkpoint_final.h5")
 
 # Time interval
 t = 0.0
-t_end = 10000
+t_end = 20000
 
 counter = 0
 
