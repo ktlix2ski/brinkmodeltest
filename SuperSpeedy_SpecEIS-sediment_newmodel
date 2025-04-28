@@ -71,7 +71,7 @@ eps_reg = df.Constant(1e-4)    # Regularization parameter
 
 
 l_s = df.Constant(2.0)         # Sediment thickness at which bedrock erosion becomes negligible 
-be = df.Constant(5.5e-9)         # Bedrock erosion coefficient
+be = df.Constant(5.5e-8)         # Bedrock erosion coefficient
 #be = df.Constant(1e-8)         # Paper code Bedrock erosion coefficient
 cc = df.Constant(5e-11)        # Fluvial erosion coefficient
 #cc = df.Constant(2e-12)        # Paper code Fluvial erosion coefficient
