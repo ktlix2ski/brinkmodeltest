@@ -50,7 +50,7 @@ zmin = -300.0               # Minimum elevation
 zmax = 2200.0               # Maximum elevation from OG
 
 amin = df.Constant(-16.0)       # Minimum smb
-amax = df.Constant(8.5)        # Maximum smb
+amax = df.Constant(8.0)        # Maximum smb
 
 c = 2.0                       # Coefficient of exponential decay
 
@@ -113,7 +113,7 @@ x, = df.SpatialCoordinate(mesh)
 surface_expression = (zmax - zmin)*df.exp(-3*x/L)  + zmin - amp*df.sin(4*np.pi*x/L) + thklim
 bed_expression = (zmax - zmin)*df.exp(-3*x/L)  + zmin - amp*df.sin(4*np.pi*x/L)
 #bed_expression = (zmax - zmin)*df.exp(-2.5*x/L)  + zmin - amp*df.sin(4*np.pi*x/40000)  #KT: trying other bed expressions
-beta_expression = df.Constant(50.0)         #KT interp: basal friction coefficient?
+beta_expression = df.Constant(40.0)         #KT interp: basal friction coefficient?
 
 #########################################################
 #################  FUNCTION SPACES  #####################
@@ -486,7 +486,7 @@ udef0.vector().apply("insert")
 ###############################################################################
 #########################  Animation Init.  ###################################
 ###############################################################################
-t_end = 10000
+t_end = 20000
 
 #KT: Plots for saving only 
 plt.ioff()
@@ -618,6 +618,7 @@ ub_dict = {}        # Dictionary of basal velocities
 Hs_dict = {}        # Dictionary of sediment thickness
 GL_dict = {}        # Dictionary of grounding line location
 Qs_dict = {}        # Dictionary of fluvial sediment flux
+SMB_dict = {}       # Dictionary for SMB
 DATA_dict ={}
 
 #KT: Grabbing timestamp at start of simulation, should match with simulation run time
@@ -726,7 +727,7 @@ time_text4 = ax_v.text(0.70,0.90,'', fontsize = 12)
 
 # Time interval
 t = 0.0
-t_end = 10000
+t_end = 20000
 
 counter = 0
 
@@ -814,6 +815,8 @@ while t<t_end:
         hs = df.interpolate(h_s0,Q_dg)
         Qs = df.interpolate(Qs0, Q_dg)
         thick = df.interpolate(H0,Q_dg)
+        SMB = df.interpolate(adot,Q_dg)
+
 
         #Updating Data on Main Glacier Plot - animation
         # ph_bed.set_ydata(B0.dat.data[:])
@@ -919,6 +922,8 @@ while t<t_end:
         Hs_dict[t] = hs.dat.data[:]        
         GL_dict[t] = g_             
         Qs_dict[t] = Qs.dat.data[:]        
+        SMB_dict[t] = SMB.dat.data[:].copy()
+
 
         #KT: Loading main data dictionary with dictionaries
         if counter % 1000 == 0:
@@ -933,7 +938,8 @@ while t<t_end:
                 'ub_dict': ub_dict,
                 'Hs_dict': Hs_dict,
                 'GL_dict': GL_dict,
-                'Qs_dict': Qs_dict
+                'Qs_dict': Qs_dict,
+                'SMB_dict': SMB_dict
             })
 
          #KT: Pickling Data Dictionary
@@ -1044,6 +1050,8 @@ if t >= t_end-5:
     Hs_dict[t] = hs.dat.data[:]        
     GL_dict[t] = g_             
     Qs_dict[t] = Qs.dat.data[:]     
+    SMB_dict[t] = SMB.dat.data[:].copy()
+
 
 
     DATA_dict.update({
@@ -1057,7 +1065,9 @@ if t >= t_end-5:
         'ub_dict': ub_dict,
         'Hs_dict': Hs_dict,
         'GL_dict': GL_dict,
-        'Qs_dict': Qs_dict
+        'Qs_dict': Qs_dict,
+        'SMB_dict': SMB_dict
+
     })
 
     if os.path.exists(dict_filename):

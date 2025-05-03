@@ -85,7 +85,7 @@ k = df.Constant(0.7)           # Fraction of overburden defining water pressure
 scf = df.Constant(0.2)          # Fraction of floating ice removed per year
 
 # k_diff = df.Constant(20)       # Sediment diffusivity
-k_diff = df.Constant(25)       
+k_diff = df.Constant(20)       
 h_ref = df.Constant(10)        # Thickness at which diffusivity stops increasing: sediment diffusive fluxes need to go
                                # to zero as sediment thickness goes to zero, which implies that the flux should be 
                                # proportional to the sed thickness - however, we also don't want thicker moraines to
@@ -113,7 +113,7 @@ x, = df.SpatialCoordinate(mesh)
 surface_expression = (zmax - zmin)*df.exp(-3*x/L)  + zmin - amp*df.sin(4*np.pi*x/L) + thklim
 bed_expression = (zmax - zmin)*df.exp(-3*x/L)  + zmin - amp*df.sin(4*np.pi*x/L)
 #bed_expression = (zmax - zmin)*df.exp(-2.5*x/L)  + zmin - amp*df.sin(4*np.pi*x/40000)  #KT: trying other bed expressions
-beta_expression = df.Constant(50.0)         #KT interp: basal friction coefficient?
+beta_expression = df.Constant(40.0)         #KT interp: basal friction coefficient?
 
 #########################################################
 #################  FUNCTION SPACES  #####################
