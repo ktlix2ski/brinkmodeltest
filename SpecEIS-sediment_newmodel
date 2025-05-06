@@ -82,7 +82,7 @@ k = df.Constant(0.7)           # Fraction of overburden defining water pressure
 
 # Shelf collapse factor 
 # units of a^{-1}
-scf = df.Constant(0.2)          # Fraction of floating ice removed per year
+scf = df.Constant(1.0)          # Fraction of floating ice removed per year
 
 # k_diff = df.Constant(20)       # Sediment diffusivity
 k_diff = df.Constant(20)       
@@ -113,7 +113,7 @@ x, = df.SpatialCoordinate(mesh)
 surface_expression = (zmax - zmin)*df.exp(-3*x/L)  + zmin - amp*df.sin(4*np.pi*x/L) + thklim
 bed_expression = (zmax - zmin)*df.exp(-3*x/L)  + zmin - amp*df.sin(4*np.pi*x/L)
 #bed_expression = (zmax - zmin)*df.exp(-2.5*x/L)  + zmin - amp*df.sin(4*np.pi*x/40000)  #KT: trying other bed expressions
-beta_expression = df.Constant(20.0)         #KT interp: basal friction coefficient?
+beta_expression = df.Constant(50.0)         #KT interp: basal friction coefficient?
 
 #########################################################
 #################  FUNCTION SPACES  #####################

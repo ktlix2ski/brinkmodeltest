@@ -113,7 +113,7 @@ x, = df.SpatialCoordinate(mesh)
 surface_expression = (zmax - zmin)*df.exp(-3*x/L)  + zmin - amp*df.sin(4*np.pi*x/L) + thklim
 bed_expression = (zmax - zmin)*df.exp(-3*x/L)  + zmin - amp*df.sin(4*np.pi*x/L)
 #bed_expression = (zmax - zmin)*df.exp(-2.5*x/L)  + zmin - amp*df.sin(4*np.pi*x/40000)  #KT: trying other bed expressions
-beta_expression = df.Constant(70.0)         #KT interp: basal friction coefficient?
+beta_expression = df.Constant(50.0)         #KT interp: basal friction coefficient?
 
 #########################################################
 #################  FUNCTION SPACES  #####################
