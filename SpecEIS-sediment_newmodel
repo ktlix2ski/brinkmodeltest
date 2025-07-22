@@ -240,9 +240,6 @@ climate_factor = df.Constant(1.0)
 #adot = climate_factor*(8 - 16/(4*L/3.)*x)  #this was hardcoded in new model
 adot = climate_factor*(amax +(amin-amax)*(x/(2*L))) #USE THIS: Variable version of hardcoded from new model, produces same outcome but lets you easily change amin and amax
 
-#adot = climate_factor*(amin + (amax-amin)/(1-df.exp(-c))*(1.-df.exp(-c*((S/2000)))))
-# adot = climate_factor*(amin + (amax-amin)/(1-df.exp(-c))*(1.-df.exp(-c*((S/(zmax-zmin))))))*grounded + (-0.5*H)*(1-grounded) #OG paper code equation
-#adot = climate_factor*(amin + (amax-amin)/(1-df.exp(-c))*(1.-df.exp(-c*((S/(zmax-zmin)))))) #changng 2000 to be max elev - min elev like in paper
 
 
 ########################################################

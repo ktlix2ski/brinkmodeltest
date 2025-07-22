@@ -477,7 +477,7 @@ ax_a.set_xlabel("SMB (m/yr)")
 
 # Time interval
 t = 0.0
-t_end = 30000
+t_end = 3000
 
 counter = 0
 
@@ -495,6 +495,13 @@ while t<t_end:
         if counter%1==0:
             fig.canvas.start_event_loop(0.00001)
             fig.canvas.draw_idle()
+
+        #####################################################
+        #ADDING TO INCREASE CF
+        if t > 500 and counter % int(10 / dt_float) == 0:
+            CF_current = float(climate_factor.values()[0])
+            climate_factor.assign(CF_current + 0.1)
+        ######################################################
 
         # Solve the velocity-ice thickness equations
         mass_solver.solve(bounds=(lower_bounds,upper_bounds))
@@ -538,6 +545,7 @@ while t<t_end:
         base = df.interpolate(Base,Q_dg)
         surf = df.interpolate(S,Q_dg)
         sed = df.interpolate(B0 + h_s0,Q_dg)
+        SMB = df.interpolate(adot, Q_dg)
 
         ph_bed.set_ydata(B0.dat.data[:])
         ph_base.set_ydata(base.dat.data[:])
@@ -545,9 +553,15 @@ while t<t_end:
         ph_sed.set_ydata(sed.dat.data[:])
 
         ph_SMB.set_ydata(surf.dat.data[:])
+        ph_SMB.set_xdata(SMB.dat.data[:])     
 
         t+=dt_float
         counter+=1
+
+        ax_a.relim()
+        ax_a.autoscale_view()
+        fig_a.canvas.draw_idle()
+        print(climate_factor)
 
     except df.ConvergenceError:
 
