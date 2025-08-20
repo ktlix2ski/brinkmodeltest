@@ -18,7 +18,6 @@ import sys
 import pickle
 import gzip
 import h5py
-from firedrake import CheckpointFile  
 
 # HELPER FUNCTIONS
 def Max(a, b): return (a+b+abs(a-b))/df.Constant(2)
@@ -119,8 +118,13 @@ x, = df.SpatialCoordinate(mesh)
 
 surface_expression = (zmax - zmin)*df.exp(-3*x/L)  + zmin - amp*df.sin(4*np.pi*x/L) + thklim
 bed_expression = (zmax - zmin)*df.exp(-3*x/L)  + zmin - amp*df.sin(4*np.pi*x/L)
-#bed_expression = (zmax - zmin)*df.exp(-2.5*x/L)  + zmin - amp*df.sin(4*np.pi*x/40000)  #KT: trying other bed expressions
+
 beta_expression = df.Constant(50.0)         #KT interp: basal friction coefficient?
+
+# Varying beta_expression
+# beta_strt_vary = 50.0
+# beta_amp = 50.0
+# beta_expression = beta_strt_vary + beta_amp * df.sin(2*np.pi*x/L)
 
 #########################################################
 #################  FUNCTION SPACES  #####################
@@ -488,7 +492,7 @@ udef0.vector().apply("insert")
 ###############################################################################
 #########################  Animation Init.  ###################################
 ###############################################################################
-t_end = 20000
+t_end = 15000
 
 #KT: Plots for saving only 
 plt.ion()
@@ -748,13 +752,13 @@ time_text4 = ax_v.text(0.70,0.90,'', fontsize = 12)
 # Climate Change Intitiation
 trig_interval = 100
 trig_range = 5
-min_t = 200 
+min_t = 5000 
 last_trig = -trig_interval
 
 
 # Time interval
 t = 0.0
-t_end = 10000
+t_end = 15000
 
 counter = 0
 
@@ -774,21 +778,70 @@ while t<t_end:
         #####################################################
         #KT: INCREASE CF LINEARLY OR EXPONENTIALLY 
         # comment out method you dont want to use 
-        if t >= min_t:
-            if abs(t % trig_interval) <= trig_range or abs(t % trig_interval - trig_interval) <= trig_range:
-                if t - last_trig >= trig_interval:
+        # initial_CF = 1
+        # final_CF = 2
+        # k1 = np.log(final_CF / initial_CF) / (t_end - min_t)
+        
+        # if t >= min_t:
+        #     if abs(t % trig_interval) <= trig_range or abs(t % trig_interval - trig_interval) <= trig_range:
+        #         if t - last_trig >= trig_interval:
 
-                    #LINEAR Increase
-                    # CF_current = float(climate_factor.values()[0])
-                    # climate_factor.assign(CF_current + 0.05)
+        #             #LINEAR Increase/Decrease
+        #             CF_current = float(climate_factor.values()[0])
+        #             climate_factor.assign(CF_current - 0.01)
+        #             # climate_factor.assign(CF_current - 0.01)
 
-                    #EXPONENTIAL Increase 
-                    CF_current = float(climate_factor.values()[0])
-                    climate_factor.assign(CF_current * 1.05)
+        #             #EXPONENTIAL Increase 
+        #             # CF_current = initial_CF * np.exp(k1*(t-min_t))
+        #             # climate_factor.assign(CF_current)
 
-                    last_trig = t
-                    print(f"Triggering climate factor increase at t = {t:.2f}")
+        #             last_trig = t
+        #             print(f"Triggering climate factor increase at t = {t:.2f}")
         ######################################################
+        ######################################################
+        #KT: INCREASE ABLATION LINEARLY OR EXPONENTIALLY 
+        # comment out method you dont want to use 
+        # initial_amin = -16
+        # final_amin = -24
+        # initial_magnitude = abs(initial_amin)
+        # final_magnitude = abs(final_amin)
+                
+        # if t >= min_t:
+        #     if abs(t % trig_interval) <= trig_range or abs(t % trig_interval - trig_interval) <= trig_range:
+        #         if t - last_trig >= trig_interval:
+
+        #             #LINEAR Increase
+        #             amin_current = float(amin.values()[0])
+        #             amin.assign(amin_current - 0.01)
+
+        #             #EXPONENTIAL Increase 
+        #             # amin_current = -initial_magnitude * np.exp(k1 * (t - start_time))
+        #             # amin.assign(amin_current)
+
+        #             last_trig = t
+        #             print(f"Triggering amin increase at t = {t:.2f}")
+        ######################################################
+        ######################################################
+        #KT: INCREASE ACCUMULATION LINEARLY OR EXPONENTIALLY 
+        # comment out method you dont want to use 
+        # initial_amax = 8
+        # final_amax = 16
+                
+        # if t >= min_t:
+        #     if abs(t % trig_interval) <= trig_range or abs(t % trig_interval - trig_interval) <= trig_range:
+        #         if t - last_trig >= trig_interval:
+
+        #             #LINEAR Increase
+        #             amax_current = float(amax.values()[0])
+        #             amax.assign(amax_current - 0.03)
+
+        #             #EXPONENTIAL Increase 
+        #             # amax_current = initial_amax * np.exp(k1 * (t - start_time))
+        #             # amax.assign(amax_current)
+
+        #             last_trig = t
+        #             print(f"Triggering amax increase at t = {t:.2f}")
+        # ######################################################
 
         # Solve the velocity-ice thickness equations
         mass_solver.solve(bounds=(lower_bounds,upper_bounds))
@@ -933,7 +986,7 @@ while t<t_end:
             ph_surface.set_ydata(surface_velocity)
             ph_basal.set_ydata(basal_velocity)
 
-        ax_v.set_xlim(0,10000)      
+        ax_v.set_xlim(0,t_end)      
 
         if max(surface_velocity + basal_velocity) > ax_v.get_ylim()[1]:
             ax_v.set_ylim(0, max(surface_velocity + basal_velocity) + 100)  # Extend velocity axis
@@ -1020,7 +1073,7 @@ while t<t_end:
         t+=dt_float
         counter+=1
 
-        print(climate_factor)
+        print(f"amax={amax}")
 
     except df.ConvergenceError:
 
@@ -1053,9 +1106,11 @@ while t<t_end:
         fig_v.savefig(vel_file)
         fig_disp.savefig(display_file)
 
-
         ani_break = animation.FuncAnimation(fig, update_anim, frames = len(frames), interval=100, blit=False) #KT: added
         ani_break.save(crash_filename, writer="ffmpeg", fps=10, dpi=150)    #KT: added
+
+        ani_rupt2 = animation.FuncAnimation(fig_disp, update_anim_disp, frames = len(frames_disp), interval=100, blit=False)
+        ani_rupt2.save(interrupt_filename_disp, writer="ffmpeg", fps=10, dpi=150)  
 
         print(f"Crashed Animation saved to: {crash_filename}")  #KT: added
         print("MODEL BREAKING NOT SAVING FINAL STATE VARIABLES")
