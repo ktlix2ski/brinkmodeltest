@@ -1,3 +1,4 @@
 Output/
 *.svg
 *.csv
+*.pkl.gz
