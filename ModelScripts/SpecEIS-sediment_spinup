@@ -21,16 +21,16 @@ import h5py
 
 ############ Spinup #################
 # Retreating
-restart_file = "/home/kayatroyer/Repositories/brinkmodeltest/Output/State_Variables/Run_2025_08_28__17_20_59/checkpoint_final.h5"
+# restart_file = "/home/kayatroyer/Repositories/brinkmodeltest/Output/State_Variables/Run_2025_09_15__12_59_22/checkpoint_final.h5"
 
 # # Retracted
-# restart_file = "/home/kayatroyer/Repositories/brinkmodeltest/Output/State_Variables/Run_2025_08_28__17_55_27/checkpoint_final.h5"
+# restart_file = "/home/kayatroyer/Repositories/brinkmodeltest/Output/State_Variables/Run_2025_09_15__13_59_17/checkpoint_final.h5"
 
 # #Advancing
-# restart_file = "/home/kayatroyer/Repositories/brinkmodeltest/Output/State_Variables/Run_2025_08_29__10_37_33/checkpoint_final.h5"
+# restart_file = "/home/kayatroyer/Repositories/brinkmodeltest/Output/State_Variables/Run_2025_09_15__14_47_26/checkpoint_final.h5"
 
 # # Extended
-# restart_file = "/home/kayatroyer/Repositories/brinkmodeltest/Output/State_Variables/Run_2025_08_29__11_10_26/checkpoint_final.h5"
+restart_file = "/home/kayatroyer/Repositories/brinkmodeltest/Output/State_Variables/Run_2025_09_15__15_41_38/checkpoint_final.h5"
 ####################################################
 
 # HELPER FUNCTIONS
@@ -69,8 +69,8 @@ thklim = 1.0                # Minimum Ice Thickness
 zmin = -300.0               # Minimum elevation
 zmax = 2200.0               # Maximum elevation from OG
 
-amin = df.Constant(-16.0)       # Minimum smb
-amax = df.Constant(6.0)        # Maximum smb
+amin = df.Constant(-18.0)       # Minimum smb
+amax = df.Constant(7.0)        # Maximum smb
 
 c = 2.0                       # Coefficient of exponential decay
 
@@ -753,7 +753,6 @@ time_text4 = ax_v.text(0.70,0.90,'', fontsize = 12)
 
 # Time interval
 t = 0.0
-t_end = 2000
 
 counter = 0
 
@@ -1164,19 +1163,8 @@ if t >= t_end-5:
             pickle.dump(existing_data, f)
             
     DATA_dict.clear()
-
-    print("Finished saving dictionary, onto animations...")
-
-    ani = animation.FuncAnimation(fig, update_anim, frames = len(frames), interval=100, blit=False)
-    #if not ani._is_saving:  # Ensure animation isn't already being written
-    ani.save(success_filename, writer="ffmpeg", fps=10, dpi=150)
-
-    ani2 = animation.FuncAnimation(fig_disp, update_anim_disp, frames = len(frames_disp), interval=100, blit=False)
-    ani2.save(success_filename_disp, writer="ffmpeg", fps = 10, dpi = 150)
-
-    print(f"Successful Model Run Animation saved to: {success_filename}")
-
-    print("Simulation completed successfully. Saving final state variables... ")
+    
+    print("Saving final state variables... ")
 
     with open(os.path.join(indiv_run_path, 'time_dict_final.json'), 'w') as f:
                 json.dump(time_dict, f)
@@ -1186,6 +1174,18 @@ if t >= t_end-5:
         Check_Final.save_function(U, name = 'U_State_final')
         Check_Final.save_function(T, name = 'T_State_final')
         Check_Final.save_function(P, name = 'P_State_final')
+
+
+    print("Finished saving dictionary & state variables, onto animations...")
+
+    ani = animation.FuncAnimation(fig, update_anim, frames = len(frames), interval=100, blit=False)
+    #if not ani._is_saving:  # Ensure animation isn't already being written
+    ani.save(success_filename, writer="ffmpeg", fps=10, dpi=150)
+
+    ani2 = animation.FuncAnimation(fig_disp, update_anim_disp, frames = len(frames_disp), interval=100, blit=False)
+    ani2.save(success_filename_disp, writer="ffmpeg", fps = 10, dpi = 150)
+
+    print(f"Successful Model Run Animation saved to: {success_filename}")
 
     fig_v.savefig(vel_file)
     fig_disp.savefig(display_file)
