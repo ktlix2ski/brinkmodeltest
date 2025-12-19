@@ -18,19 +18,21 @@ import sys
 import pickle
 import gzip
 import h5py
+import colorednoise as cn
+
 
 ############ Spinup #################
 # Retreating
 # restart_file = "/home/kayatroyer/Repositories/brinkmodeltest/Output/State_Variables/Run_2025_09_15__12_59_22/checkpoint_final.h5"
 
 # # Retracted
-# restart_file = "/home/kayatroyer/Repositories/brinkmodeltest/Output/State_Variables/Run_2025_09_15__13_59_17/checkpoint_final.h5"
+restart_file = "/home/kayatroyer/Repositories/brinkmodeltest/Output/State_Variables/Run_2025_09_15__13_59_17/checkpoint_final.h5"
 
 # #Advancing
 # restart_file = "/home/kayatroyer/Repositories/brinkmodeltest/Output/State_Variables/Run_2025_09_15__14_47_26/checkpoint_final.h5"
 
 # # Extended
-restart_file = "/home/kayatroyer/Repositories/brinkmodeltest/Output/State_Variables/Run_2025_09_15__15_41_38/checkpoint_final.h5"
+# restart_file = "/home/kayatroyer/Repositories/brinkmodeltest/Output/State_Variables/Run_2025_09_15__15_41_38/checkpoint_final.h5"
 ####################################################
 
 # HELPER FUNCTIONS
@@ -61,6 +63,20 @@ sigmoid = lambda z: 1./(1+df.exp(-z))
 #################################### VARIABLES #######################################
 #######################################################################################
 
+###### Noise Parameters ######
+test = 'RNG(114)_amin_10ka'
+rand = np.random.default_rng(114)
+beta = 2
+t_end = 10000
+
+amin_noise = cn.powerlaw_psd_gaussian(beta, t_end, random_state=rand)
+# amax_noise = cn.powerlaw_psd_gaussian(beta, t_end, random_state=rand)
+
+noise_amplitude = 1.0 # m/yr
+amin_noise *= noise_amplitude
+# amax_noise *= noise_amplitude
+##############################
+
 #L = 45000.                  # OG: Characteristic domain length
 L = 55000                    #KT: Leconte L
 spy = 60**2*24*365          
@@ -69,8 +85,11 @@ thklim = 1.0                # Minimum Ice Thickness
 zmin = -300.0               # Minimum elevation
 zmax = 2200.0               # Maximum elevation from OG
 
-amin = df.Constant(-18.0)       # Minimum smb
-amax = df.Constant(7.0)        # Maximum smb
+amin = df.Constant(-16.0)       # Minimum smb
+amin_base = df.Constant(-16.0) 
+amax = df.Constant(8.0)         # Maximum smb
+amax_base = df.Constant(8.0)        
+
 
 c = 2.0                       # Coefficient of exponential decay
 
@@ -487,7 +506,7 @@ udef0.vector().apply("insert")
 ###############################################################################
 #########################  Animation Init.  ###################################
 ###############################################################################
-t_end = 2000
+t_end = 10000
 
 #KT: Plots for saving only 
 plt.ion()
@@ -615,6 +634,16 @@ GL_dict = {}        # Dictionary of grounding line location
 Qs_dict = {}        # Dictionary of fluvial sediment flux
 SMB_dict = {}       # Dictionary for SMB
 DATA_dict ={}
+
+# ADDITIONAL SAVING 11/12 
+Pw_dict = {}        # water pressure
+N_dict = {}         # effective pressure
+me_dict = {}        # basal melt / melt rate
+Qw_dict = {}        # water flux
+Bdot_dict = {}      # bedrock erosion rate
+edot_dict = {}      # fluvial erosion rate
+ddot_dict = {}      # deposition rate
+beta_dict = {}      # basal friction coef (beta2)
 
 #KT: Grabbing timestamp at start of simulation, should match with simulation run time
 start_time = datetime.now().strftime("%Y_%m_%d__%H_%M_%S")
@@ -753,9 +782,11 @@ time_text4 = ax_v.text(0.70,0.90,'', fontsize = 12)
 
 # Time interval
 t = 0.0
+previous_year = -1
 
 counter = 0
 
+noise_list = []
 # Maximum time step!!  Increase with caution.
 dt_max = 1.0   
 
@@ -763,6 +794,22 @@ dt_max = 1.0
 while t<t_end:
     try: # If the solvers don't converge, reduce the time step and try again.
         print(t,dt_float)
+
+        current_year = int(t // 1.0)
+
+        if current_year > 1 and current_year != previous_year:
+            previous_year = current_year
+
+            # Apply noise for this year
+            amin_new = float(amin_base) + amin_noise[current_year]
+            # amax_new = float(amax_base) + amax_noise[current_year]
+
+            amin.assign(amin_new)
+            # amax.assign(amax_new)
+
+            print(f"amin={amin}")
+            print(f"amax={amax}")
+            noise_list.append([current_year,float(amin),float(amax)])
         
         if counter%1==0:
             fig.canvas.start_event_loop(0.00001)
@@ -783,10 +830,6 @@ while t<t_end:
         #             CF_current = float(climate_factor.values()[0])
         #             climate_factor.assign(CF_current + 0.01)
         #             # climate_factor.assign(CF_current - 0.01)
-
-        #             #EXPONENTIAL Increase 
-        #             # CF_current = initial_CF * np.exp(k1*(t-min_t))
-        #             # climate_factor.assign(CF_current)
 
         #             last_trig = t
         #             print(f"Triggering climate factor increase at t = {t:.2f}")
@@ -812,10 +855,6 @@ while t<t_end:
         #             # amax_current = float(amax.values()[0])
         #             # amax.assign(amax_current - 0.05)
 
-        #             #EXPONENTIAL Increase 
-        #             # amin_current = -initial_magnitude * np.exp(k1 * (t - start_time))
-        #             # amin.assign(amin_current)
-
         #             last_trig = t
         #             print(f"Triggering amin increase at t = {t:.2f}")
         ######################################################
@@ -832,10 +871,6 @@ while t<t_end:
         #             #LINEAR Increase
         #             amax_current = float(amax.values()[0])
         #             amax.assign(amax_current - 0.0)
-
-        #             #EXPONENTIAL Increase 
-        #             # amax_current = initial_amax * np.exp(k1 * (t - start_time))
-        #             # amax.assign(amax_current)
 
         #             last_trig = t
         #             print(f"Triggering amax increase at t = {t:.2f}")
@@ -1020,6 +1055,25 @@ while t<t_end:
         Qs_dict[t] = Qs.dat.data[:]        
         SMB_dict[t] = SMB.dat.data[:].copy()
 
+        # ADDITIONAL SAVING 11/12 
+        Pw = df.project(P_w, Q_dg).dat.data[:]          
+        Nval = df.project(N, Q_dg).dat.data[:]          
+        me_val = df.project(me, Q_dg).dat.data[:]       
+        Qw_arr = Qw.dat.data[:]                          
+        Bdot_arr = df.project(Bdot, Q_dg).dat.data[:] if 'Bdot' in globals() else (-be*beta2*N*u(1)**2*delta).dat.data[:]
+        edot_arr = df.project(edot, Q_dg).dat.data[:] if 'edot' in globals() else (cc/h_eff*ubar_w**2*(1-delta)).dat.data[:]
+        ddot_arr = df.project(ddot, Q_dg).dat.data[:] if 'ddot' in globals() else (d*Qs/Qw).dat.data[:]
+        beta_arr = beta2.dat.data[:]     
+
+        Pw_dict[t] = Pw
+        N_dict[t] = Nval
+        me_dict[t] = me_val
+        Qw_dict[t] = Qw_arr
+        Bdot_dict[t] = Bdot_arr
+        edot_dict[t] = edot_arr
+        ddot_dict[t] = ddot_arr
+        beta_dict[t] = beta_arr                
+        ##############################################
 
         #KT: Loading main data dictionary with dictionaries
         if counter % 1000 == 0:
@@ -1035,7 +1089,16 @@ while t<t_end:
                 'Hs_dict': Hs_dict,
                 'GL_dict': GL_dict,
                 'Qs_dict': Qs_dict,
-                'SMB_dict': SMB_dict
+                'SMB_dict': SMB_dict,
+                # ADDITIONAL SAVING 11/12 
+                'Pw_dict': Pw_dict,
+                'N_dict': N_dict,
+                'me_dict': me_dict,
+                'Qw_dict': Qw_dict,
+                'Bdot_dict': Bdot_dict,
+                'edot_dict': edot_dict,
+                'ddot_dict': ddot_dict,
+                'beta_dict': beta_dict
             })
 
          #KT: Pickling Data Dictionary
@@ -1106,6 +1169,9 @@ while t<t_end:
         fig_v.savefig(vel_file)
         fig_disp.savefig(display_file)
 
+        noise_arr = np.array(noise_list)
+        np.savetxt(f"amin_amax_timeseries_amp{noise_amplitude}_{t_end}yrs_{test}.csv", noise_arr, delimiter=",", header="time,amin,amax", comments='', fmt="%.6f")
+
         ani_break = animation.FuncAnimation(fig, update_anim, frames = len(frames), interval=100, blit=False) #KT: added
         ani_break.save(crash_filename, writer="ffmpeg", fps=10, dpi=150)    #KT: added
 
@@ -1134,7 +1200,24 @@ if t >= t_end-5:
     GL_dict[t] = g_             
     Qs_dict[t] = Qs.dat.data[:]     
     SMB_dict[t] = SMB.dat.data[:].copy()
+    # ADDITIONAL SAVING 11/12 
+    Pw = df.project(P_w, Q_dg).dat.data[:]          
+    Nval = df.project(N, Q_dg).dat.data[:]          
+    me_val = df.project(me, Q_dg).dat.data[:]       
+    Qw_arr = Qw.dat.data[:]                          
+    Bdot_arr = df.project(Bdot, Q_dg).dat.data[:] if 'Bdot' in globals() else (-be*beta2*N*u(1)**2*delta).dat.data[:]
+    edot_arr = df.project(edot, Q_dg).dat.data[:] if 'edot' in globals() else (cc/h_eff*ubar_w**2*(1-delta)).dat.data[:]
+    ddot_arr = df.project(ddot, Q_dg).dat.data[:] if 'ddot' in globals() else (d*Qs/Qw).dat.data[:]
+    beta_arr = beta2.dat.data[:]     
 
+    Pw_dict[t] = Pw
+    N_dict[t] = Nval
+    me_dict[t] = me_val
+    Qw_dict[t] = Qw_arr
+    Bdot_dict[t] = Bdot_arr
+    edot_dict[t] = edot_arr
+    ddot_dict[t] = ddot_arr
+    beta_dict[t] = beta_arr       
 
 
     DATA_dict.update({
@@ -1149,9 +1232,17 @@ if t >= t_end-5:
         'Hs_dict': Hs_dict,
         'GL_dict': GL_dict,
         'Qs_dict': Qs_dict,
-        'SMB_dict': SMB_dict
-
-    })
+        'SMB_dict': SMB_dict,
+        # ADDITIONAL SAVING 11/12 
+        'Pw_dict': Pw_dict,
+        'N_dict': N_dict,
+        'me_dict': me_dict,
+        'Qw_dict': Qw_dict,
+        'Bdot_dict': Bdot_dict,
+        'edot_dict': edot_dict,
+        'ddot_dict': ddot_dict,
+        'beta_dict': beta_dict
+            })
 
     if os.path.exists(dict_filename):
         with gzip.open(dict_filename, 'rb', compresslevel=3) as f:
@@ -1164,6 +1255,11 @@ if t >= t_end-5:
             
     DATA_dict.clear()
     
+    noise_arr = np.array(noise_list)
+    np.savetxt(f"amin_amax_timeseries_amp{noise_amplitude}_{t_end}yrs_{test}.csv", noise_arr, delimiter=",", header="time,amin,amax", comments='', fmt="%.6f")
+
+    print("Finished saving dictionary and CSV")
+
     print("Saving final state variables... ")
 
     with open(os.path.join(indiv_run_path, 'time_dict_final.json'), 'w') as f:

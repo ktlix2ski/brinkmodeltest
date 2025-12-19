@@ -2,3 +2,5 @@ Output/
 *.svg
 *.csv
 *.pkl.gz
+*.png
+*.gz
